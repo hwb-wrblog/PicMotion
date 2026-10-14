@@ -1,20 +1,36 @@
 @echo off
-rem simple-ui launcher -- starts the local UI service (no console window) and opens the browser.
+rem PicMotion - start the local UI service (no console window) and open the browser
+rem Keep this file ASCII-only (see the note in start-app.bat).
 setlocal
 set HERE=%~dp0
-set PYW=%HERE%..\ComfyUI-aki-v3.2\python\pythonw.exe
-set PYC=%HERE%..\ComfyUI-aki-v3.2\python\python.exe
 
-if not exist "%PYC%" (
-  echo [ERROR] ComfyUI python not found:
-  echo   %PYC%
-  echo.
-  echo Keep this "simple-ui" folder inside the same folder as ComfyUI-aki-v3.2.
-  pause
-  exit /b 1
-)
+set PORT=8899
+if exist "%HERE%port.txt" set /p PORT=<"%HERE%port.txt"
 
+set PYW=
+if exist "%HERE%python.txt" set /p PYW=<"%HERE%python.txt"
+if defined PYW goto go
+for %%P in (
+  "%HERE%..\ComfyUI-aki-v3.2\python\pythonw.exe"
+  "%HERE%..\..\ComfyUI-aki-v3.2\python\pythonw.exe"
+  "%HERE%..\ComfyUI\python\pythonw.exe"
+  "%HERE%..\..\python\pythonw.exe"
+  "%HERE%..\python_embeded\pythonw.exe"
+) do if not defined PYW if exist %%P set PYW=%%~fP
+if defined PYW goto go
+
+echo [ERROR] Cannot find the Python bundled with ComfyUI.
+echo   Put the full path of pythonw.exe into %HERE%python.txt, or place this
+echo   folder directly under your ComfyUI folder. See README.md for details.
+pause
+exit /b 1
+
+:go
+netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>&1
+if not errorlevel 1 goto open
 start "" "%PYW%" "%HERE%serve.py"
 timeout /t 3 /nobreak >nul
-start "" http://127.0.0.1:8899/
+
+:open
+start "" http://127.0.0.1:%PORT%/
 exit /b 0

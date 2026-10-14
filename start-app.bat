@@ -1,59 +1,71 @@
 @echo off
-rem PicMotion (极简画影) -- desktop launcher
-rem   1) make sure the local service is running (hidden, no console window)
-rem   2) open it as a standalone app window: own profile => own window, no tabs, no address bar
+rem PicMotion - desktop launcher
+rem   1) make sure the local UI service is running (hidden, no console window)
+rem   2) open it as a standalone app window (own profile: no tabs, no address bar)
+rem
+rem NOTE: keep this file ASCII-only and avoid parenthesised if-blocks around
+rem       paths. %ProgramFiles(x86)% expands to a path containing ")", which
+rem       breaks cmd's block parsing; non-ASCII text is decoded with the OEM
+rem       code page and can be executed as garbage commands.
 setlocal
 set HERE=%~dp0
 
-rem --- port: written by serve.py into port.txt; falls back to 8899 ---
+rem --- port: written by serve.py into port.txt; fallback 8899 ---
 set PORT=8899
 if exist "%HERE%port.txt" set /p PORT=<"%HERE%port.txt"
 set URL=http://127.0.0.1:%PORT%/
 set PROFILE=%HERE%app-profile
 
-rem --- find a python: python.txt (written by serve.py) first, then common portable layouts ---
+rem --- locate a python: python.txt (written by serve.py) first, then common layouts ---
 set PYW=
 if exist "%HERE%python.txt" set /p PYW=<"%HERE%python.txt"
-if not defined PYW (
-  for %%P in (
-    "%HERE%..\ComfyUI-aki-v3.2\python\pythonw.exe"
-    "%HERE%..\..\ComfyUI-aki-v3.2\python\pythonw.exe"
-    "%HERE%..\ComfyUI\python\pythonw.exe"
-    "%HERE%..\..\python\pythonw.exe"
-    "%HERE%..\python_embeded\pythonw.exe"
-    "%HERE%..\..\python_embeded\pythonw.exe"
-  ) do if not defined PYW if exist %%P set PYW=%%~fP
-)
-rem if we only found python.exe, prefer pythonw.exe next to it (no console window)
-if defined PYW if /i "%PYW:~-10%"=="python.exe" if exist "%PYW:~0,-10%pythonw.exe" set PYW=%PYW:~0,-10%pythonw.exe
+if defined PYW goto have_python
+for %%P in (
+  "%HERE%..\ComfyUI-aki-v3.2\python\pythonw.exe"
+  "%HERE%..\..\ComfyUI-aki-v3.2\python\pythonw.exe"
+  "%HERE%..\ComfyUI\python\pythonw.exe"
+  "%HERE%..\..\python\pythonw.exe"
+  "%HERE%..\python_embeded\pythonw.exe"
+  "%HERE%..\..\python_embeded\pythonw.exe"
+) do if not defined PYW if exist %%P set PYW=%%~fP
+if defined PYW goto have_python
 
-if not defined PYW (
-  echo [ERROR] 找不到 ComfyUI 自带的 python。
-  echo   办法一：在 %HERE%python.txt 里写一行 pythonw.exe 的完整路径
-  echo   办法二：把本目录放进 ComfyUI 整合包根目录的下一层
-  echo   办法三：在本目录建 config.json 写明 comfy_root
-  pause
-  exit /b 1
-)
+echo [ERROR] Cannot find the Python bundled with ComfyUI.
+echo   1^) write the full path of pythonw.exe into: %HERE%python.txt
+echo   2^) or place this folder directly under your ComfyUI folder
+echo   3^) or create config.json here with the key "comfy_root"
+pause
+exit /b 1
 
-rem 1) service up?
+:have_python
+rem prefer pythonw.exe (no console window) if we only found python.exe
+if /i not "%PYW:~-10%"=="python.exe" goto service
+if not exist "%PYW:~0,-10%pythonw.exe" goto service
+set PYW=%PYW:~0,-10%pythonw.exe
+
+:service
 netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>&1
-if errorlevel 1 (
-  start "" "%PYW%" "%HERE%serve.py"
-  timeout /t 3 /nobreak >nul
-)
+if not errorlevel 1 goto open_window
+start "" "%PYW%" "%HERE%serve.py"
+timeout /t 3 /nobreak >nul
 
-rem 2) open as an app window (dedicated profile keeps it independent from normal browsing)
-set EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe
-if not exist "%EDGE%" set EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe
+:open_window
+rem SystemDrive is used instead of %ProgramFiles(x86)% on purpose (see note above)
+set EDGE=%SystemDrive%\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+if exist "%EDGE%" goto run_edge
+set EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe
+if exist "%EDGE%" goto run_edge
 set CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe
-if not exist "%CHROME%" set CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe
+if exist "%CHROME%" goto run_chrome
+set CHROME=%SystemDrive%\Program Files (x86)\Google\Chrome\Application\chrome.exe
+if exist "%CHROME%" goto run_chrome
+start "" %URL%
+exit /b 0
 
-if exist "%EDGE%" (
-  start "" "%EDGE%" --app=%URL% --user-data-dir=%PROFILE% --no-first-run --no-default-browser-check --window-size=1320,920
-) else if exist "%CHROME%" (
-  start "" "%CHROME%" --app=%URL% --user-data-dir=%PROFILE% --no-first-run --no-default-browser-check --window-size=1320,920
-) else (
-  start "" %URL%
-)
+:run_edge
+start "" "%EDGE%" --app=%URL% --user-data-dir=%PROFILE% --no-first-run --no-default-browser-check --window-size=1320,920
+exit /b 0
+
+:run_chrome
+start "" "%CHROME%" --app=%URL% --user-data-dir=%PROFILE% --no-first-run --no-default-browser-check --window-size=1320,920
 exit /b 0

@@ -459,3 +459,48 @@ COMFY_ROOT = os.path.abspath(os.path.join(HERE, '..', 'ComfyUI-aki-v3.2'))
 
 **教训**：脚本里不要出现「同级目录名」这类机器相关假设 ——
 **要么可配置，要么可探测**，两者都做不到才写死。
+
+---
+
+## 20. `.bat` 启动脚本被 cmd 拆碎：`%ProgramFiles(x86)%` 的 `)` ＋ 中文乱码
+
+**症状**
+
+双击桌面图标后**什么都不发生**，但任务管理器里躺着一个一直不退的 `cmd.exe`。
+把脚本输出重定向出来看，是一堆莫名其妙的报错：
+
+```text
+'sole' is not recognized as an internal or external command
+'Epython.txt' is not recognized as an internal or external command
+'锟藉綍鐨勪笅涓€灞? is not recognized as an internal or external command
+Press any key to continue . . .
+```
+
+注意 `sole`、`Epython.txt`、`ined` 这些**被截断的单词** —— 这是「行被切碎」的典型指纹。
+
+**根因**（两个问题叠加）
+
+1. **`%ProgramFiles(x86)%` 展开出的路径里带 `)`**。
+   只要这条路径出现在 `if exist "%EDGE%" ( ... )` 这类**括号块**里，
+   展开值中的 `)` 就会被 cmd 当成块的结束符，块后面的内容全部被拆成独立命令去执行。
+   原来的脚本写死 `C:\Program Files (x86)\...`，因为一直没有变量展开参与块解析，
+   所以「碰巧能用」；改成 `%ProgramFiles(x86)%` 之后就炸了。
+2. **`.bat` 里写了中文**。cmd 用系统 OEM 代码页（中文 Windows 是 GBK）读取脚本**字节**，
+   而文件是 UTF-8，于是中文变成 `锟斤拷` 一类乱码；行结构一旦被上一条破坏，
+   这些乱码就会被当作命令执行。
+
+两个问题合起来的结果：脚本语法崩掉 → 落到报错分支的 `pause` → 窗口永远不出来。
+
+**解决**
+
+- `.bat` 一律**纯 ASCII**。要给人看的中文说明放 `README.md` / `docs/`，不放进脚本。
+  （本仓库现在有检查：读文件字节，确认没有 >127 的值）
+- **不要在 `.bat` 里用带括号的变量**：用 `%SystemDrive%\Program Files (x86)\...`
+  代替 `%ProgramFiles(x86)%`
+- 更彻底的一招：**分支用 `goto` 标签，不用 `if (...)` 括号块**。
+  本项目三个 `.bat` 现在全是 `if 条件 goto 标签` 的写法，从根上避开括号解析
+- 自检手段：用 `cmd /c` 配**空 stdin** 跑一遍并重定向输出（空 stdin 能让 `pause` /
+  `set /p` 立刻 EOF，不会把排查卡死），一眼就能区分「语法炸了」还是「在等按键」
+
+**教训**：`.bat` 是最脆的脚本格式 ——
+**ASCII-only ＋ 不用括号块 ＋ 分支走 `goto`**，能一次性绕开绝大多数解析陷阱。
