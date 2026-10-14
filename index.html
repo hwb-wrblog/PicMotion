@@ -185,9 +185,9 @@
       <label>模型</label>
       <select id="model"></select>
 
-      <label>画面合理性（内置，建议保持开启）</label>
-      <div class="styles" id="qbits" title="内置合理性提示词：追加构图/比例/解剖相关的词，并强化负面词，让画面不拉伸、更协调">
-        <button data-q="quality" class="on">合理 · 不拉伸</button>
+      <label>画面合理性</label>
+      <div class="styles" id="qbits" title="追加画质 / 构图 / 比例 / 解剖类提示词，并按需补充人物、动作、场景的细节词。不拉伸是几何层面保证的（出图尺寸按参考图比例换算、高清第二遍以图片自身尺寸为基准），与这个开关无关。">
+        <button data-q="quality" class="on">基础质量</button>
         <button data-q="person">人物</button>
         <button data-q="action">动作</button>
         <button data-q="scene">场景</button>
@@ -614,7 +614,7 @@ function applyQ() {
     b.onclick = () => { QBITS[b.dataset.q] = !QBITS[b.dataset.q]; applyQ(); };
   });
   if ($('qHint')) {
-    const names = { quality: '合理·不拉伸', person: '人物', action: '动作', scene: '场景' };
+    const names = { quality: '基础质量', person: '人物', action: '动作', scene: '场景' };
     const on = Object.keys(QBITS).filter(k => QBITS[k]).map(k => names[k]);
     $('qHint').textContent = on.length
       ? '已开启：' + on.join('、') + '（生成时会追加这些词，图下方会显示实际加了什么）'

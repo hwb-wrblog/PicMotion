@@ -16,6 +16,7 @@ simple-ui —— 极简画影：ComfyUI 的极简出图 / 出视频界面（本�
 
 import base64
 import json
+import math
 import os
 import re
 import random
@@ -881,7 +882,8 @@ def build_outpaint_workflow(prompt, negative, checkpoint, src_w, src_h, directio
 
 def build_workflow(prompt, negative, checkpoint, width, height, steps, cfg,
                    sampler, scheduler, seed, batch, hires=None, prefix='simpleui',
-                   init_image=None, denoise=1.0, control=None, control_strength=1.0):
+                   init_image=None, denoise=1.0, control=None, control_strength=1.0,
+                   hires_base=None):
     wf = {
         '4': {'class_type': 'CheckpointLoaderSimple', 'inputs': {'ckpt_name': checkpoint}},
         '6': {'class_type': 'CLIPTextEncode', 'inputs': {'text': prompt, 'clip': ['4', 1]}},
@@ -923,11 +925,17 @@ def build_workflow(prompt, negative, checkpoint, width, height, steps, cfg,
     last = ['3', 0]
     if hires:
         # 第二遍：把潜空间放大，再用低重绘幅度采样一次补细节（hires fix）
+        # ⚠ 基准尺寸必须是**潜空间当前的实际尺寸**：
+        #   文生图 = 出图尺寸；图生图 = 参考图自己的尺寸。
+        #   若用尺寸选择器当基准，LatentUpscale 的 crop='disabled' 会按矩形硬抻 ——
+        #   实测把 426x1114 的图抻成了 768x1152（比例 0.38 变 0.67）。
         scale, hd = hires
+        bw, bh = (hires_base or (width, height))
         wf['11'] = {'class_type': 'LatentUpscale',
                     'inputs': {'samples': ['3', 0], 'upscale_method': 'bislerp',
-                               'width': int(round(width * scale)),
-                               'height': int(round(height * scale)), 'crop': 'disabled'}}
+                               'width': max(8, int(round(bw * scale / 8.0)) * 8),
+                               'height': max(8, int(round(bh * scale / 8.0)) * 8),
+                               'crop': 'disabled'}}
         wf['12'] = {'class_type': 'KSampler',
                     'inputs': {'seed': int(seed), 'steps': max(10, int(round(steps * 0.7))),
                                'cfg': float(cfg), 'sampler_name': sampler,
@@ -995,6 +1003,7 @@ def generate(params):
     control_strength = 1.0
     outpaint = ''
     aspect_fixed = False
+    hires_base = None
     src_w = src_h = 0
     out_canvas = (0, 0)
 
@@ -1031,13 +1040,18 @@ def generate(params):
             applied.append('扩图连贯性　' + OUTPAINT_SUFFIX)
         if init_image:
             src_w, src_h = image_size(os.path.join(COMFY_INPUT, init_image))
-        # ControlNet 的防拉伸：按参考图比例换算出图尺寸
-        # （比例不一致时 ControlNet 会把结构图硬缩放到出图尺寸，人物就被拉长压扁）
+        # ControlNet 时把出图尺寸对齐到参考图的比例。
+        # （比例不一致时 ControlNet 会把结构图**居中裁剪**而非拉伸 —— 会裁掉内容，对齐比例两者都能避免）
         if control and src_w and src_h:
             nw, nh = fit_size_to_aspect(width, height, src_w, src_h)
             if (nw, nh) != (width, height):
                 width, height = nw, nh
                 aspect_fixed = True
+        # hires 第二遍的基准尺寸：图生图必须用**参考图自己的尺寸**（对齐到 8 的倍数）。
+        # 用尺寸选择器当基准会把潜空间硬抻成选择器的比例 ——
+        # 实测一张 426x1114（比例 0.38）的图被抻成 768x1152（比例 0.67）。
+        if init_image and src_w and src_h and not outpaint:
+            hires_base = (int(math.ceil(src_w / 8.0)) * 8, int(math.ceil(src_h / 8.0)) * 8)
 
     up, msg = ensure_comfy()
     if not up:
@@ -1056,7 +1070,8 @@ def generate(params):
                             steps, cfg, 'dpmpp_2m', 'karras', seed, batch,
                             hires=HIRES.get(hires_key, None),
                             init_image=init_image, denoise=denoise,
-                            control=control or None, control_strength=control_strength)
+                            control=control or None, control_strength=control_strength,
+                            hires_base=hires_base)
 
     # ---------- ③ 提交 ----------
     t0 = time.time()
@@ -1149,7 +1164,11 @@ def generate(params):
         result['aspectFixed'] = aspect_fixed
         result['size'] = '%dx%d' % (width, height)
         result['hires'] = hires_key
-        result['outSize'] = '%dx%d' % (int(round(width * factor)), int(round(height * factor)))
+        # 实际输出尺寸要按「高清第二遍真正用的基准」算：
+        # 图生图用图片自身尺寸，文生图/ControlNet 用出图尺寸
+        base_w, base_h = (hires_base or (width, height))
+        result['outSize'] = '%dx%d' % (max(8, int(round(base_w * factor / 8.0)) * 8),
+                                       max(8, int(round(base_h * factor / 8.0)) * 8))
         if outpaint:
             result['outSize'] = result['outpaintCanvas']   # 扩图的实际输出 = 补完的画布
     return result
