@@ -132,24 +132,26 @@
         <input type="range" id="cnStrength" min="0.2" max="1.6" step="0.1" value="1" style="width:100%">
         </div>
 
-        <label>扩图 / 补全（在画面外补内容）</label>
-        <select id="outpaint" title="在画面外补内容。原图那块不会被改动，只在外面生成新内容；提示词要描述你想补出来的东西">
-          <option value="" selected>不用</option>
-          <option value="down">向下补 —— 半身补全身（补腿、脚）</option>
-          <option value="up">向上补 —— 补头顶、天空</option>
-          <option value="lr">左右补 —— 扩展场景</option>
-          <option value="all">四周补 —— 整体扩大画布</option>
-        </select>
-        <label>补多少</label>
-        <select id="opAmount" title="小=补一点（补脚/头顶）；大=尽量多补（半身补全身用这个）">
-          <option value="small">小 —— 补一点（补脚、补头顶、扩一点背景）</option>
-          <option value="mid" selected>中 —— 补半屏</option>
-          <option value="large">大 —— 尽量多补（补全身试这个）</option>
-        </select>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--fg)">
-          <input type="checkbox" id="opShrink" title="缩小原图腾空间：半身补全身请勾上，人物会变小但全身比例才正常" style="width:auto">
-          <span>缩小原图腾空间（<b>半身补全身请勾上</b>：人物会变小，但全身比例才正常）</span>
-        </label>
+        <label>扩图 / 补全</label>
+        <div class="styles" id="opDirs" title="在画面外补内容。原图那块不会被改动，只在外面生成新内容；提示词要描述你想补出来的东西">
+          <button data-v="" class="on">不用</button>
+          <button data-v="down">向下补</button>
+          <button data-v="up">向上补</button>
+          <button data-v="lr">左右补</button>
+          <button data-v="all">四周补</button>
+        </div>
+        <div id="opOpts" style="display:none">
+          <label>补多少</label>
+          <div class="styles" id="opAmts" title="小=补一点（补脚/头顶）；大=尽量多补（半身补全身用这个）">
+            <button data-v="small">小</button>
+            <button data-v="mid" class="on">中</button>
+            <button data-v="large">大</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--fg)">
+            <input type="checkbox" id="opShrink" style="width:auto">
+            <span>缩小原图腾空间</span>
+          </label>
+        </div>
         </div>
 
       <label>想画什么</label>
@@ -397,8 +399,8 @@ async function draw() {
       denoise: +$('denoise').value,
       control: $('control').value,
       cnStrength: +$('cnStrength').value,
-      outpaint: $('outpaint').value,
-      opAmount: $('opAmount').value,
+      outpaint: OP_DIR,
+      opAmount: OP_AMT,
       opShrink: $('opShrink').checked,
       quality: QBITS.quality,
       person: QBITS.person,
@@ -620,12 +622,22 @@ function applyQ() {
   }
 }
 
-// ---------------- 选了扩图时，重绘幅度/控制方式不适用，收起来免得混淆 ----------------
+// ---------------- 扩图：方向 / 补幅 改用勾选式按钮（与「风格」一致，一点即选）----------------
+let OP_DIR = '', OP_AMT = 'mid';
+
 function applyOutpaint() {
-  const op = $('outpaint') ? $('outpaint').value : '';
-  if ($('imgAdjust')) $('imgAdjust').style.display = op ? 'none' : '';
+  document.querySelectorAll('#opDirs button').forEach(function (b) {
+    b.className = (b.dataset.v === OP_DIR) ? 'on' : '';
+    b.onclick = () => { OP_DIR = b.dataset.v; applyOutpaint(); };
+  });
+  document.querySelectorAll('#opAmts button').forEach(function (b) {
+    b.className = (b.dataset.v === OP_AMT) ? 'on' : '';
+    b.onclick = () => { OP_AMT = b.dataset.v; applyOutpaint(); };
+  });
+  if ($('opOpts')) $('opOpts').style.display = OP_DIR ? '' : 'none';
+  // 选了扩图时，重绘幅度 / 控制方式不适用，收起来免得混淆
+  if ($('imgAdjust')) $('imgAdjust').style.display = OP_DIR ? 'none' : '';
 }
-if ($('outpaint')) $('outpaint').onchange = applyOutpaint;
 
 applyQ();
 applyOutpaint();

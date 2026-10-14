@@ -157,13 +157,12 @@ DEFAULT_NEGATIVE = (
 #      负向：上面的 DEFAULT_NEGATIVE 已经压了拉伸/畸形/多肢。
 #      另外还有一条结构性保障：出图尺寸会按参考图比例换算，避免结构被硬抻（见 fit_size_to_aspect）。
 # ---------------------------------------------------------------------------
-QUALITY_PREFIX = 'masterpiece, best quality, highly detailed'
-QUALITY_SUFFIX = ('coherent composition, natural proportions, correct anatomy, '
-                  'well-balanced framing, sharp focus')
+QUALITY_PREFIX = 'masterpiece, best quality'
+QUALITY_SUFFIX = 'coherent composition, natural proportions, correct anatomy'
 SUBJECT_TOKENS = {
-    'person': 'detailed face, detailed eyes, natural skin texture, proportionate body, correct human anatomy',
-    'action': 'natural pose, balanced posture, physically plausible movement, dynamic but natural',
-    'scene': 'coherent scene, consistent perspective, believable depth, natural lighting, well-composed background',
+    'person': 'detailed face, correct human anatomy, proportionate body',
+    'action': 'natural pose, balanced posture',
+    'scene': 'coherent scene, consistent perspective',
 }
 
 # 扩图（在画面外补内容）：方向 -> (左, 上, 右, 下)，值是「源图对应边长的比例」
@@ -191,7 +190,7 @@ STYLES = {
     'realistic': {
         'label': '写实',
         'model': 'majicmixRealistic_v7.safetensors',
-        'tokens': 'photorealistic, 85mm lens, natural skin texture, soft light, film grain, professional photography, sharp focus',
+        'tokens': 'photorealistic, 85mm lens, soft light, film grain, professional photography',
     },
     'anime': {
         'label': '动漫',
@@ -961,18 +960,20 @@ def generate(params):
     if mode == 'video':
         full_prompt = translated
     else:
+        # 顺序很重要：CLIP 只吃前 77 个 token，超了从尾部截。
+        # 所以把**用户自己写的词放最前**，通用的质量词放最后 —— 万一被截，砍掉的是通用词。
         parts = [translated] if translated else []
         if style['tokens']:
             parts.append(style['tokens'])
             applied.append('风格　' + style['tokens'])
-        if _truthy(params.get('quality'), True):
-            parts.insert(0, QUALITY_PREFIX)
-            parts.append(QUALITY_SUFFIX)
-            applied.append('合理性　' + QUALITY_SUFFIX)
         for key, label in (('person', '人物'), ('action', '动作'), ('scene', '场景')):
             if _truthy(params.get(key)):
                 parts.append(SUBJECT_TOKENS[key])
                 applied.append(label + '　' + SUBJECT_TOKENS[key])
+        if _truthy(params.get('quality'), True):
+            parts.append(QUALITY_PREFIX)
+            parts.append(QUALITY_SUFFIX)
+            applied.append('合理性　' + QUALITY_SUFFIX)
         full_prompt = ', '.join(p for p in parts if p)
 
     # ---------- ① 违规检测与拦截 ----------
