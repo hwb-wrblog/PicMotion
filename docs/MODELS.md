@@ -18,6 +18,9 @@ ComfyUI 本体 + 自带 Python + 绘世启动器 + 一批常用自定义节点 +
 - 解压后的目录名：`ComfyUI-aki-v3.2`（里面还有一层同名目录，真正含 `ComfyUI/main.py` 的是**里层**）
 - 启动方式：双击 `绘世启动器.exe`（图形化）或直接用 `python\python.exe ComfyUI\main.py`
 
+> 完整的下载与安装步骤（解压密码、嵌套目录、首次启动、自带节点与模型盘点、常见问题）
+> 见 **[INSTALL-PACKAGE.md](INSTALL-PACKAGE.md)**。
+
 把本仓库放在这个目录的**同级**即可，程序会自动找到它：
 
 ```text

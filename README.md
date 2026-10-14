@@ -108,6 +108,9 @@ be reachable on `127.0.0.1:8188`.
 本程序就放在它的同级目录（见[摆放位置](#1-摆放位置)），程序会自动找到它。
 各文件的出处与下载命令见 **[docs/MODELS.md](docs/MODELS.md)**。
 
+**完整的下载与安装步骤**（解压密码、嵌套目录、首次启动、自带节点与模型盘点、常见问题）
+见 **[docs/INSTALL-PACKAGE.md](docs/INSTALL-PACKAGE.md)**。
+
 ### 必须有
 
 | 项 | 说明 |
@@ -522,6 +525,7 @@ simple-ui/                       # 本仓库
 
 ## 相关文档
 
+- [`docs/INSTALL-PACKAGE.md`](docs/INSTALL-PACKAGE.md) —— 一键整合包的完整安装过程（下载、解压密码、目录结构、首次启动、自带节点与模型盘点、常见问题）
 - [`docs/MODELS.md`](docs/MODELS.md) —— 模型清单：文件名、体积、放哪个目录、**从哪个仓库下载**（含直接可用的下载命令）
 - [`docs/HARDWARE.md`](docs/HARDWARE.md) —— 硬件要求与实测性能、内存/页面文件/磁盘建议
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) —— 请求链路、每种模式的工作流节点图、关键设计决策、API 一览
