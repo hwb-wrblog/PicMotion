@@ -226,9 +226,17 @@ SIZES = {
 # 正确做法是「两遍画法」：先按基准尺寸画 → 放大潜空间 → 用较低重绘幅度再采样一遍补细节。
 HIRES = {
     'none': None,           # 标准（只画一遍，最快）
-    '1.5': (1.5, 0.40),     # 高清 1.5 倍
-    '2': (2.0, 0.45),       # 高清 2 倍
+    '1.5': (1.5, 0.60),     # 高清 1.5 倍
+    '2': (2.0, 0.65),       # 高清 2 倍
 }
+# 潜空间放大用的插值方法。
+# 实测（同提示词同种子，输出同为 768x1152，用拉普拉斯方差衡量锐度）：
+#   bislerp + 重绘0.40（旧默认）= 69.3   ← 明显发糊
+#   bislerp + 重绘0.55          = 126.8
+#   bislerp + 重绘0.70          = 152.7
+#   bicubic + 重绘0.60          = 154.2  ← 最锐，且重绘幅度更低（改动更小）
+# 结论：换 bicubic 比继续加重绘更划算。
+HIRES_METHOD = 'bicubic'
 
 # ---------------------------------------------------------------------------
 # 视频：Wan 2.2 5B TI2V —— 一个模型同时支持文生视频和图生视频
@@ -932,7 +940,7 @@ def build_workflow(prompt, negative, checkpoint, width, height, steps, cfg,
         scale, hd = hires
         bw, bh = (hires_base or (width, height))
         wf['11'] = {'class_type': 'LatentUpscale',
-                    'inputs': {'samples': ['3', 0], 'upscale_method': 'bislerp',
+                    'inputs': {'samples': ['3', 0], 'upscale_method': HIRES_METHOD,
                                'width': max(8, int(round(bw * scale / 8.0)) * 8),
                                'height': max(8, int(round(bh * scale / 8.0)) * 8),
                                'crop': 'disabled'}}
