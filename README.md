@@ -3,6 +3,17 @@
 > 跑在本地的 ComfyUI 极简中文界面：**写中文 → 点「生成」→ 出图 / 出视频**。
 > 不联网、不要 API key、不注册账号，全部在你自己的机器上完成。
 
+> **来源与授权**
+>
+> - **本项目**（PicMotion · 极简画影）以 [MIT License](LICENSE) 开源。
+> - 它依赖的 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 是开源项目。
+>   **本项目是独立第三方界面，不是 ComfyUI 官方项目**，与 ComfyUI 及整合包作者均无隶属关系。
+> - 文档中推荐的一键整合包来自 **bilibili@秋葉aaaki**（作者主页：
+>   <https://space.bilibili.com/12566101>，下载地址与解压密码见
+>   [docs/INSTALL-PACKAGE.md](docs/INSTALL-PACKAGE.md)）。作者在包内的原话是：
+>   **「AI 绘画内核【ComfyUI】为开源项目，以及启动器【绘世】是完全免费的软件，严禁倒卖。如有发现，请及时举报。」**
+>   请务必从作者给出的渠道获取，**不要购买任何倒卖的副本**。
+
 ![PicMotion 界面示意](docs/images/screenshot.png)
 
 ---
@@ -13,6 +24,13 @@
 top of a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) installation. Type a prompt in
 Chinese, press one button, and get an image or a short video. There is no cloud service, no API key
 and no account — everything runs offline on your own machine.
+
+> **Attribution / licensing.** PicMotion is an independent, MIT-licensed front-end. It is **not** an
+> official ComfyUI project and is not affiliated with the authors of ComfyUI or of the all-in-one
+> package recommended below. That package is published by **bilibili@秋葉aaaki**; its source,
+> extraction password and the author's notice are documented in
+> [docs/INSTALL-PACKAGE.md](docs/INSTALL-PACKAGE.md) — the author states that ComfyUI and the
+> 绘世 launcher are **free software and reselling them is prohibited**.
 
 ### Features
 
