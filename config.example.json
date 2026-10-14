@@ -1,0 +1,8 @@
+{
+  "_readme": "复制本文件为 config.json 再改。comfy_root 指向你的 ComfyUI 根目录 —— 也就是同时含 ComfyUI/main.py 和 python/python.exe（或 python_embeded/python.exe）的那一层。留空则会自动探测：本目录 / 上一级 / 上两级，以及它们的下一层。也可以用环境变量 PICMOTION_COMFY_ROOT 指定。",
+  "comfy_root": "",
+
+  "_readme2": "下面两项一般不用改。comfy_url 是 ComfyUI 的 API 地址，port 是本界面的端口。",
+  "comfy_url": "http://127.0.0.1:8188",
+  "port": 8899
+}

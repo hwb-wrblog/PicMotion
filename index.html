@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>极简画影</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/logo.png">
+<style>
+  :root { --bg:#14161a; --panel:#1d2027; --line:#2c313b; --fg:#e8eaee; --dim:#9aa3b2; --acc:#4f8cff; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:15px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:22px 18px 60px; }
+  .head { display:flex; align-items:center; gap:13px; margin-bottom:18px; }
+  .head img { width:52px; height:52px; border-radius:14px; display:block;
+              box-shadow:0 4px 16px rgba(0,0,0,.5); }
+  h1 { font-size:19px; margin:0 0 3px; font-weight:600; }
+  .sub { color:var(--dim); font-size:13px; }
+  .cols { display:grid; grid-template-columns:minmax(340px,420px) 1fr; gap:18px; }
+  /* 宽屏：右栏（预览）只吸附固定，不自己滚 —— 全页只保留一条滚动条。
+     预览高度压到 56vh，保证整张右卡能塞进视口，不会有第二根滚动条。 */
+  @media (min-width:901px) {
+    .cols > .card:last-child { position:sticky; top:18px; align-self:start; }
+    .stage img, .stage video { max-height:56vh; }
+  }
+  @media (max-width:900px){ .cols { grid-template-columns:1fr; } }
+  /* 规则配置弹窗 */
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.62); display:none; z-index:50;
+           align-items:center; justify-content:center; padding:24px; }
+  .modal.on { display:flex; }
+  .modal-box { background:var(--panel); border:1px solid var(--line); border-radius:12px;
+               width:min(700px,100%); max-height:86vh; display:flex; flex-direction:column; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                padding:14px 16px; border-bottom:1px solid var(--line); font-weight:600; }
+  .modal-x { background:transparent; border:0; color:var(--dim); font-size:24px; cursor:pointer; line-height:1; }
+  .modal-body { padding:16px; overflow:auto; }
+  #modTagBtn { cursor:pointer; font:inherit; font-size:12px; }
+  #modTagBtn:hover { border-color:var(--acc); color:var(--fg); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  label { display:block; font-size:13px; color:var(--dim); margin:12px 0 6px; }
+  label:first-child { margin-top:0; }
+  textarea, input[type=text], input[type=number], select {
+    width:100%; background:#12141a; color:var(--fg); border:1px solid var(--line);
+    border-radius:8px; padding:10px; font:14px/1.5 inherit; outline:none; }
+  textarea { min-height:96px; resize:vertical; }
+  textarea:focus, input:focus, select:focus { border-color:var(--acc); }
+  .styles { display:flex; flex-wrap:wrap; gap:8px; }
+  .styles button { flex:0 0 auto; background:#12141a; color:var(--fg); border:1px solid var(--line);
+    border-radius:999px; padding:7px 14px; cursor:pointer; font:13px inherit; }
+  .styles button.on { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .go { width:100%; margin-top:16px; padding:13px; border:0; border-radius:9px; cursor:pointer;
+        background:var(--acc); color:#fff; font:600 16px inherit; }
+  .go:disabled { opacity:.5; cursor:default; }
+  .ghost { background:#12141a; color:var(--fg); border:1px solid var(--line); }
+  details { margin-top:14px; }
+  summary { cursor:pointer; color:var(--dim); font-size:13px; }
+  .status { margin-top:12px; font-size:13px; color:var(--dim); min-height:20px; }
+  .status.bad { color:var(--bad); }
+  .status b { color:var(--fg); font-weight:600; }
+  .stage { min-height:320px; display:flex; align-items:center; justify-content:center;
+           background:#101216; border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .stage img, .stage video { max-width:100%; max-height:72vh; border-radius:8px; display:block; }
+  .stage .ph { color:var(--dim); font-size:14px; text-align:center; }
+  .meta { color:var(--dim); font-size:12.5px; margin-top:10px; word-break:break-all; white-space:pre-wrap; }
+  .gal { display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; margin-top:10px; }
+  .gal img, .gal video { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:6px; cursor:pointer;
+             border:1px solid var(--line); background:#000; }
+  /* 兜底：任何媒体都不许把页面撑宽（视频/图片/画布都算上） */
+  img, video, canvas { max-width:100%; }
+  .gal img:hover, .gal video:hover { border-color:var(--acc); }
+  .tag { display:inline-block; font-size:12px; color:var(--dim); border:1px solid var(--line);
+         border-radius:999px; padding:2px 9px; margin-right:6px; }
+  .ok { color:#5ad18a; } .no { color:var(--bad); }
+  details.box { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:14px; background:#171a20; }
+  details.box > summary { cursor:pointer; font-size:13.5px; color:var(--acc); font-weight:600; list-style:none; }
+  details.box > summary::-webkit-details-marker { display:none; }
+  details.box > summary::before { content:'▸  '; }
+  details.box[open] > summary::before { content:'▾  '; }
+  details.box[open] > summary { margin-bottom:10px; }
+  .rules { max-height:300px; overflow:auto; }
+  .rule { display:grid; grid-template-columns:20px 1fr 24px; gap:6px; align-items:center;
+          padding:8px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:#101216; }
+  .rule input[type=text] { padding:5px 7px; font-size:12px; }
+  .rule .rpat { grid-column:1 / -1; font-family:Consolas,monospace; }
+  .rule input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
+  .rule .del { background:transparent; border:0; color:var(--bad); cursor:pointer; font-size:16px; line-height:1; }
+  .btnrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .btnrow button { margin-top:0; padding:9px; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt="">
+    <div>
+      <h1>极简画影</h1>
+      <div class="sub">图片和视频都能生成：写中文 → 点「生成」，风格和参数我来配。
+        <button class="tag" id="modTagBtn" title="点击配置违规检测规则">⚙ 违规检测</button></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- 左：输入 -->
+    <div class="card">
+      <label>参考图（图生图，可选）</label>
+      <input type="file" id="initImg" accept="image/*"
+             style="width:100%;background:#12141a;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:13px inherit">
+      <div id="initBox" style="display:none;margin-top:8px">
+        <img id="initPrev" style="max-width:100%;max-height:150px;border-radius:8px;border:1px solid var(--line);display:block">
+        <div id="imgAdjust">
+        <div class="row" style="margin-top:8px">
+          <div>
+            <label style="margin-top:0">重绘幅度 <span id="dnVal" style="color:var(--fg)">0.55</span></label>
+            <input type="range" id="denoise" min="0.15" max="0.9" step="0.05" value="0.55" style="width:100%">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="go ghost" id="clearImg" style="margin-top:0">去掉参考图</button>
+          </div>
+        </div>
+        <div class="meta">幅度越小越贴近原图（保画风用 0.3-0.45），越大改动越多（换风格用 0.6-0.8）</div>
+
+        <label>控制方式（锁构图换内容）</label>
+        <select id="control">
+          <option value="" selected>不用 —— 传统图生图（保留原图光影）</option>
+          <option value="canny">边缘 Canny —— 保线条轮廓</option>
+          <option value="depth">深度 Depth —— 保空间结构</option>
+          <option value="openpose">姿态 OpenPose —— 保人物动作</option>
+          <option value="lineart">线稿 LineArt —— 保线稿</option>
+          <option value="scribble">涂鸦 Scribble —— 宽松保形</option>
+        </select>
+        <label>控制强度 <span id="cnVal" style="color:var(--fg)">1.0</span></label>
+        <input type="range" id="cnStrength" min="0.2" max="1.6" step="0.1" value="1" style="width:100%">
+        <div class="meta">选了控制方式 = 用参考图当「结构草图」重新画 —— 构图保留、内容和光线按提示词换；
+        不选 = 传统图生图（越像越保留原图，光影很难改）。<br>
+        深度/姿态/线稿首次使用会下预处理器权重（走镜像），第一次会慢一点。</div>
+        </div>
+
+        <label>扩图 / 补全（在画面外补内容）</label>
+        <select id="outpaint">
+          <option value="" selected>不用</option>
+          <option value="down">向下补 —— 半身补全身（补腿、脚）</option>
+          <option value="up">向上补 —— 补头顶、天空</option>
+          <option value="lr">左右补 —— 扩展场景</option>
+          <option value="all">四周补 —— 整体扩大画布</option>
+        </select>
+        <label>补多少</label>
+        <select id="opAmount">
+          <option value="small">小 —— 补一点（补脚、补头顶、扩一点背景）</option>
+          <option value="mid" selected>中 —— 补半屏</option>
+          <option value="large">大 —— 尽量多补（补全身试这个）</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--fg)">
+          <input type="checkbox" id="opShrink" style="width:auto">
+          <span>缩小原图腾空间（<b>半身补全身请勾上</b>：人物会变小，但全身比例才正常）</span>
+        </label>
+        <div class="meta">用「原图 + 掩码」补：<b>原图那块不会被改动</b>，只在外面生成新内容。
+        已挂扩图专用 inpaint ControlNet，接缝 / 光照 / 背景会延续原图。<br>
+        <b>实测结论（512×768 半身图 → 画布 512×1280）</b>：<br>
+        ・不勾「缩小」：接缝干净，但腿被压扁、脚出不来（人物占满画布，没空间了）<br>
+        ・<b>勾上「缩小」：完整全身（牛仔裤 + 球鞋），接缝看不出，背景连贯</b> ← 补全身用这个<br>
+        提示词请把<b>要补的东西 + 整体</b>都写上（例：全身照，牛仔裤，双腿，白色运动鞋，站在水泥地面上，写实摄影）。</div>
+      </div>
+
+      <label>想画什么</label>
+      <textarea id="prompt" placeholder="例：深夜的书店，窗外下雨，暖黄台灯，木书架，一杯咖啡"></textarea>
+
+      <label>生成什么</label>
+      <div class="styles" id="modes">
+        <button data-mode="image" class="on">图片</button>
+        <button data-mode="video">视频</button>
+      </div>
+
+      <div id="imgOnly">
+      <label>风格</label>
+      <div class="styles" id="styles"></div>
+
+      <label>画面比例（基准尺寸）</label>
+      <select id="size">
+        <option value="portrait" selected>竖版 512×768</option>
+        <option value="landscape">横版 768×512</option>
+        <option value="square">方形 640×640</option>
+        <option value="wide">宽屏 896×512</option>
+      </select>
+
+      <label>清晰度</label>
+      <select id="hires">
+        <option value="none">标准（最快，512 级别）</option>
+        <option value="1.5" selected>高清 1.5×（推荐）</option>
+        <option value="2">高清 2×（最清晰，慢）</option>
+      </select>
+
+      <label>模型</label>
+      <select id="model"></select>
+      <div class="meta" id="styleHint"></div>
+
+      <label>画面合理性（内置，建议保持开启）</label>
+      <div class="styles" id="qbits">
+        <button data-q="quality" class="on">合理 · 不拉伸</button>
+        <button data-q="person">人物</button>
+        <button data-q="action">动作</button>
+        <button data-q="scene">场景</button>
+      </div>
+      <div class="meta" id="qHint"></div>
+      </div>
+
+      <div id="vidOnly" style="display:none">
+        <label>视频尺寸</label>
+        <select id="vsize">
+          <option value="480p_landscape" selected>横版 832×480</option>
+          <option value="480p_portrait">竖版 480×832</option>
+          <option value="480p_square">方形 640×640</option>
+          <option value="720p_landscape">高清横版 1280×704（慢，可能爆显存）</option>
+        </select>
+        <label>时长</label>
+        <select id="seconds">
+          <option value="2" selected>2 秒（45 帧）</option>
+          <option value="3">3 秒（73 帧）</option>
+          <option value="5">5 秒（121 帧，慢）</option>
+        </select>
+        <label>步数</label>
+        <select id="vsteps">
+          <option value="20" selected>20 步（推荐）</option>
+          <option value="10">10 步（快，质量降）</option>
+          <option value="30">30 步（慢，质量升）</option>
+        </select>
+        <div class="meta">Wan2.2 5B：写了提示词就是文生视频；放了参考图就用它当**首帧**（图生视频）。<br>
+        参数跟官方模板一致：uni_pc / simple / CFG 5 / shift 8 / 24fps。</div>
+      </div>
+
+      <details class="box">
+        <summary>高级（一般不用动）</summary>
+        <label>负面词</label>
+        <textarea id="negative" style="min-height:60px" placeholder="留空则用默认质量底线"></textarea>
+        <div class="row">
+          <div><label>步数</label><input type="number" id="steps" value="24" min="8" max="60"></div>
+          <div><label>CFG</label><input type="number" id="cfg" value="7" step="0.5" min="1" max="20"></div>
+        </div>
+        <div class="row">
+          <div><label>种子（0=随机）</label><input type="number" id="seed" value="0" min="0"></div>
+          <div><label>张数</label><input type="number" id="batch" value="1" min="1" max="4"></div>
+        </div>
+      </details>
+
+      <button class="go" id="go">生成</button>
+      <button class="go ghost" id="again" style="margin-top:8px">再画一张（换种子）</button>
+      <button class="go ghost" id="clearPrev" style="margin-top:8px">清空预览缓存</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- 右：结果 -->
+    <div class="card">
+      <div class="stage" id="stage"><div class="ph">出图会显示在这里</div></div>
+      <div class="btnrow" style="margin-top:12px">
+        <button class="go ghost" id="saveBtn" disabled title="下载到你自己的位置">保存到本地</button>
+        <button class="go ghost" id="revealBtn" disabled title="在资源管理器里定位这个文件">在文件夹中显示</button>
+      </div>
+      <div class="meta" id="meta"></div>
+      <label style="margin-top:16px">最近生成</label>
+      <div class="gal" id="gal"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 违规检测规则配置弹窗（点顶部「⚙ 违规检测」打开） -->
+<div class="modal" id="ruleModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>⚙ 违规检测规则 <span class="tag" id="ruleBadge"></span></span>
+      <button class="modal-x" id="ruleModalClose" title="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="rules" id="rules"></div>
+      <div class="btnrow">
+        <button class="go ghost" id="btnAddRule">添加规则</button>
+        <button class="go" id="btnSaveRules">保存规则</button>
+      </div>
+      <div class="status" id="rulesOut"></div>
+      <div class="meta">规则文件：<span id="rulesFile"></span><br>
+        也可以直接用记事本改它，存盘后下一次请求自动生效，不用重启。<br>
+        出图链路：① 检测 → ② 翻译 → ③ 组装 → ④ 提交 ComfyUI，不通过到不了 ComfyUI。</div>
+
+      <label style="margin-top:14px">检测自测（不产图，只看会不会被拦）</label>
+      <textarea id="probe" style="min-height:64px" placeholder="随便写点东西，看看会不会命中规则"></textarea>
+      <button class="go ghost" id="btnProbe" style="margin-top:8px">试一下</button>
+      <div class="status" id="probeOut"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let STYLE = 'realistic';
+let STYLE_MODELS = {}, STYLE_TOKENS = {}, STYLE_LABELS = {};
+let MODEL_INITED = false;  // 模型下拉是否已按风格初始化过
+let LAST_TOP = '';         // 「最近生成」里最新的那个文件（用来判断断线后有没有新结果）
+let CUR_IMG = '';          // 当前预览的图（保存/定位都针对它）
+
+function setStatus(text, bad) {
+  $('status').innerHTML = text || '';
+  $('status').className = 'status' + (bad ? ' bad' : '');
+}
+
+async function loadState() {
+  try {
+    const s = await (await fetch('/api/state')).json();
+    // 风格按钮
+    STYLE_MODELS = s.styleModels || {};
+    STYLE_TOKENS = s.styleTokens || {};
+    STYLE_LABELS = s.styles || {};
+    $('styles').innerHTML = '';
+    for (const [k, label] of Object.entries(s.styles || {})) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.className = (k === STYLE ? 'on' : '');
+      b.onclick = () => {
+        STYLE = k;
+        const m = STYLE_MODELS[k];        // 风格连带切模型（明确切，不让用户猜）
+        if (m) $('model').value = m;
+        loadState();
+      };
+      $('styles').appendChild(b);
+    }
+    // 模型
+    if (s.models && s.models.length) {
+      const cur = $('model').value;
+      $('model').innerHTML = '';
+      for (const m of s.models) {
+        const o = document.createElement('option');
+        o.value = m; o.textContent = m;
+        $('model').appendChild(o);
+      }
+      if (!MODEL_INITED) {
+        // 首次进来：默认用「当前风格对应的模型」，别用列表第一项
+        // （列表按字母排序，AWPainting 会排第一 —— 那样一进来就是动漫模型，很容易误解）
+        const m = STYLE_MODELS[STYLE];
+        if (m && s.models.includes(m)) $('model').value = m;
+        MODEL_INITED = true;
+      } else if (cur && s.models.includes(cur)) {
+        $('model').value = cur;
+      }
+    }
+    if ($('styleHint')) {
+      const lbl = STYLE_LABELS[STYLE] || STYLE;
+      const m = STYLE_MODELS[STYLE] || '';
+      const t = STYLE_TOKENS[STYLE] || '';
+      $('styleHint').textContent = '风格「' + lbl + '」→ 模型 ' + (m || '不指定') +
+        (t ? '\n会附加提示词：' + t : '\n不附加额外提示词') +
+        '\n（要照片感选「写实」或「不加风格」；「插画／动漫」天生就是画出来的样子）';
+    }
+    if ($('modTagBtn')) {
+      $('modTagBtn').textContent = '⚙ 违规检测：' + s.blockPatterns + ' 条生效' +
+        (s.ruleCount > s.blockPatterns ? ' / 共 ' + s.ruleCount + ' 条' : '') + '（点这里配置）';
+      $('modTagBtn').classList.toggle('no', !s.blockPatterns);
+    }
+    RULES = (s.rules || []).map(function (r) {
+      return { name: r.name || '', pattern: r.pattern || '', enabled: !!r.enabled };
+    });
+    if ($('rulesFile')) $('rulesFile').textContent = s.rulesFile || '';
+    if ($('ruleBadge')) {
+      $('ruleBadge').textContent = s.blockPatterns + ' 条生效' +
+        (s.ruleCount > s.blockPatterns ? ' / 共 ' + s.ruleCount + ' 条' : '');
+    }
+    renderRules();
+    LAST_TOP = (s.recent || [])[0] || '';
+    renderGallery((s.recent || []).slice(0, 8));
+    if (!s.comfy) setStatus('ComfyUI 还没启动，第一次点「生成」会自动拉起（约 10-60 秒）');
+  } catch (e) {
+    setStatus('读取状态失败：' + e, true);
+  }
+}
+
+function renderGallery(list) {
+  $('gal').innerHTML = '';
+  for (const f of list) {
+    const isVid = /\.(mp4|webm|mkv|mov)$/i.test(f);
+    const el = document.createElement(isVid ? 'video' : 'img');
+    el.src = '/api/img?name=' + encodeURIComponent(f);
+    el.title = f + (isVid ? '（视频）' : '');
+    if (isVid) { el.muted = true; el.preload = 'metadata'; }
+    el.onclick = () => showImage(f, null);
+    $('gal').appendChild(el);
+  }
+}
+
+function showImage(name, meta) {
+  CUR_IMG = name || '';
+  $('stage').innerHTML = '';
+  const isVid = /\.(mp4|webm|mkv|mov)$/i.test(name || '');
+  const el = document.createElement(isVid ? 'video' : 'img');
+  el.src = '/api/img?name=' + encodeURIComponent(name);
+  if (isVid) { el.controls = true; el.autoplay = true; el.loop = true; }
+  else { el.onclick = () => window.open(el.src, '_blank'); }
+  $('stage').appendChild(el);
+  if (meta) $('meta').textContent = meta;
+  if ($('saveBtn')) $('saveBtn').disabled = !CUR_IMG;
+  if ($('revealBtn')) $('revealBtn').disabled = !CUR_IMG;
+}
+
+async function draw() {
+  const prompt = $('prompt').value.trim();
+  if (!prompt) { setStatus('先写点想画的东西', true); return; }
+  $('go').disabled = true;
+  setStatus('处理中… 第一次可能要等 ComfyUI 启动');
+  try {
+    const body = {
+      prompt: prompt,
+      style: STYLE,
+      mode: MODE,
+      size: $('size').value,
+      hires: $('hires').value,
+      vsize: $('vsize').value,
+      seconds: $('seconds').value,
+      image: INIT_DATA,
+      denoise: +$('denoise').value,
+      control: $('control').value,
+      cnStrength: +$('cnStrength').value,
+      outpaint: $('outpaint').value,
+      opAmount: $('opAmount').value,
+      opShrink: $('opShrink').checked,
+      quality: QBITS.quality,
+      person: QBITS.person,
+      action: QBITS.action,
+      scene: QBITS.scene,
+      checkpoint: $('model').value,
+      negative: $('negative').value.trim(),
+      steps: MODE === 'video' ? (+$('vsteps').value || 20) : (+$('steps').value || 24),
+      cfg: MODE === 'video' ? 5 : (+$('cfg').value || 7),
+      seed: +$('seed').value || 0,
+      batch: +$('batch').value || 1,
+    };
+    const r = await (await fetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).json();
+
+    if (!r.ok) {
+      setStatus((r.blocked ? '<b>已拦截：</b>' : '<b>失败：</b>') + (r.error || '未知错误'), true);
+      return;
+    }
+    let meta, out;
+    if (r.mode === 'video') {
+      out = (r.videos && r.videos.length) ? r.videos[0] : (r.images && r.images[0]);
+      meta = '视频 · ' + r.vsize + ' · ' + r.frames + ' 帧 / ' + r.seconds + ' 秒 · 24fps · 种子 ' +
+             r.seed + ' · 耗时 ' + r.elapsed + ' 秒';
+    } else {
+      out = (r.images && r.images.length) ? r.images[0] : (r.videos && r.videos[0]);
+      meta = '模型 ' + r.checkpoint + ' · 输出 ' + (r.outSize || r.size) + ' · 种子 ' + r.seed +
+             ' · 耗时 ' + r.elapsed + ' 秒' +
+             ((r.images && r.images.length > 1) ? ' · 共 ' + r.images.length + ' 张' : '');
+      if (r.hires && r.hires !== 'none') meta += '\n高清 ' + r.hires + '×（基准 ' + r.size + ' → 放大重绘第二遍）';
+      if (r.imgMode === 'i2i') meta += '\n图生图：重绘幅度 ' + r.denoise + '（参考图 ' + r.initImage + '）';
+      if (r.imgMode === 'outpaint') {
+        const dn = { down: '向下补', up: '向上补', lr: '左右补', all: '四周补' }[r.outpaint] || r.outpaint;
+        meta += '\n扩图（' + dn + '）：补完画布 ' + r.outpaintCanvas + '，原图区域保持未改动';
+      }
+      if (r.imgMode === 'controlnet') meta += '\nControlNet「' + r.control + '」强度 ' + r.controlStrength +
+        '：参考图只当结构草图，画面是重新画的';
+      if (r.aspectFixed) meta += '\n⚠ 已按参考图比例把出图尺寸改成 ' + r.size + '（不改的话结构会被拉伸）';
+      if (r.applied && r.applied.length) {
+        meta += '\n内置提示词（追加到你的提示词后面）：\n  ' + r.applied.join('\n  ');
+      }
+    }
+    if (r.translated) {
+      const via = r.engine === 'google' ? '（Google 翻译）' : (r.engine === 'dict' ? '（本地词库）' : '');
+      meta += '\n实际送出的提示词' + via + '：' + r.translated;
+    }
+    if (r.engine === 'dict' && r.dropped && r.dropped.length) {
+      meta += '\n词库里没有、未参与出图的中文：' + r.dropped.join('、');
+    }
+    showImage(out, meta);
+    setStatus('完成，耗时 ' + r.elapsed + ' 秒');
+    $('seed').value = 0;
+    loadState();
+  } catch (e) {
+    // 连接断了（比如界面服务被重启）。ComfyUI 那边很可能照常把任务跑完了，
+    // 所以去「最近生成」里找有没有新文件 —— 找到就直接显示，别让结果白跑。
+    setStatus('连接中断：' + e + ' —— 正在检查任务是否已经完成…', true);
+    const ok = await recoverResult();
+    if (!ok) {
+      setStatus('连接中断：' + e +
+        '\n任务可能还在跑。等十几秒后刷新页面（Ctrl+R），看「最近生成」里有没有新结果。', true);
+    }
+  } finally {
+    $('go').disabled = false;
+  }
+}
+
+// 断线后找回结果：ComfyUI 是独立进程，界面服务断了它照样会把活干完
+async function recoverResult() {
+  for (let i = 0; i < 24; i++) {
+    try {
+      const s = await (await fetch('/api/recent')).json();
+      const list = s.images || [];
+      if (list.length && list[0] !== LAST_TOP) {
+        showImage(list[0], '连接中断，但 ComfyUI 那边已经把任务跑完了。这是刚出来的结果。');
+        setStatus('已找回结果：' + list[0] + '（连接中断前任务就跑完了）');
+        loadState();
+        return true;
+      }
+    } catch (e) { /* 服务还没起来，继续等 */ }
+    setStatus('连接中断，正在等任务收尾…（第 ' + (i + 1) + ' 次检查，ComfyUI 可能还在跑）');
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  return false;
+}
+
+// ---------------- 检测规则编辑 ----------------
+let RULES = [];
+
+function ruleRow(r, i) {
+  const d = document.createElement('div');
+  d.className = 'rule';
+
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.checked = !!r.enabled; cb.title = '这条规则是否生效';
+  cb.onchange = () => { RULES[i].enabled = cb.checked; };
+
+  const name = document.createElement('input');
+  name.type = 'text'; name.placeholder = '规则名称（只给自己看）'; name.value = r.name || '';
+  name.oninput = () => { RULES[i].name = name.value; };
+
+  const del = document.createElement('button');
+  del.className = 'del'; del.textContent = '×'; del.title = '删除这条规则';
+  del.onclick = () => { RULES.splice(i, 1); renderRules(); };
+
+  const pat = document.createElement('input');
+  pat.type = 'text'; pat.className = 'rpat'; pat.value = r.pattern || '';
+  pat.placeholder = '正则，例如：色情|做爱|全裸   （用 | 表示「或」）';
+  pat.oninput = () => { RULES[i].pattern = pat.value; };
+
+  d.append(cb, name, del, pat);
+  return d;
+}
+
+function renderRules() {
+  const box = $('rules');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!RULES.length) {
+    const p = document.createElement('div');
+    p.className = 'meta';
+    p.textContent = '（当前没有规则 —— 保存后不会拦截任何内容）';
+    box.appendChild(p);
+    return;
+  }
+  RULES.forEach((r, i) => box.appendChild(ruleRow(r, i)));
+}
+
+async function saveRules() {
+  $('rulesOut').className = 'status';
+  $('rulesOut').textContent = '保存中…';
+  try {
+    const r = await (await fetch('/api/rules', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules: RULES }),
+    })).json();
+    if (r.ok) {
+      $('rulesOut').className = 'status ok';
+      $('rulesOut').textContent = '已保存：' + r.count + ' 条规则，' + r.enabled + ' 条生效' +
+        (r.enabled === 0 ? '（等于不拦截任何内容）' : '');
+      loadState();
+    } else {
+      $('rulesOut').className = 'status bad';
+      $('rulesOut').textContent = '保存失败：' + (r.error || '未知错误');
+    }
+  } catch (e) {
+    $('rulesOut').className = 'status bad';
+    $('rulesOut').textContent = '出错：' + e;
+  }
+}
+
+if ($('btnAddRule')) $('btnAddRule').onclick = () => {
+  RULES.push({ name: '新规则', pattern: '', enabled: true });
+  renderRules();
+};
+if ($('btnSaveRules')) $('btnSaveRules').onclick = saveRules;
+
+// ---------------- 参考图（图生图） ----------------
+let INIT_DATA = '';
+
+if ($('initImg')) {
+  $('initImg').onchange = () => {
+    const f = $('initImg').files && $('initImg').files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      INIT_DATA = rd.result;
+      $('initPrev').src = INIT_DATA;
+      $('initBox').style.display = 'block';
+      setStatus('已加载参考图 —— 现在点「生成」是图生图（按重绘幅度改这张图）');
+    };
+    rd.readAsDataURL(f);
+  };
+  $('clearImg').onclick = () => {
+    INIT_DATA = '';
+    $('initImg').value = '';
+    $('initBox').style.display = 'none';
+    setStatus('已去掉参考图，现在是文生图');
+  };
+  $('denoise').oninput = () => { $('dnVal').textContent = $('denoise').value; };
+  if ($('cnStrength')) $('cnStrength').oninput = () => {
+    $('cnVal').textContent = (+$('cnStrength').value).toFixed(1);
+  };
+}
+
+// ---------------- 图片 / 视频 切换 ----------------
+let MODE = 'image';
+function applyMode() {
+  document.querySelectorAll('#modes button').forEach(function (b) {
+    b.className = (b.dataset.mode === MODE) ? 'on' : '';
+  });
+  if ($('imgOnly')) $('imgOnly').style.display = (MODE === 'image') ? '' : 'none';
+  if ($('vidOnly')) $('vidOnly').style.display = (MODE === 'video') ? '' : 'none';
+}
+document.querySelectorAll('#modes button').forEach(function (b) {
+  b.onclick = () => { MODE = b.dataset.mode; applyMode(); };
+});
+applyMode();
+
+// ---------------- 画面合理性（内置提示词）开关 ----------------
+const QBITS = { quality: true, person: false, action: false, scene: false };
+function applyQ() {
+  document.querySelectorAll('#qbits button').forEach(function (b) {
+    b.className = QBITS[b.dataset.q] ? 'on' : '';
+    b.onclick = () => { QBITS[b.dataset.q] = !QBITS[b.dataset.q]; applyQ(); };
+  });
+  if ($('qHint')) {
+    const names = { quality: '合理·不拉伸', person: '人物', action: '动作', scene: '场景' };
+    const on = Object.keys(QBITS).filter(k => QBITS[k]).map(k => names[k]);
+    $('qHint').textContent = on.length
+      ? '已开启：' + on.join('、') + '（生成时会追加这些词，图下方会显示实际加了什么）'
+      : '已全部关闭：只按你写的提示词生成，不加任何内置词';
+  }
+}
+
+// ---------------- 选了扩图时，重绘幅度/控制方式不适用，收起来免得混淆 ----------------
+function applyOutpaint() {
+  const op = $('outpaint') ? $('outpaint').value : '';
+  if ($('imgAdjust')) $('imgAdjust').style.display = op ? 'none' : '';
+}
+if ($('outpaint')) $('outpaint').onchange = applyOutpaint;
+
+applyQ();
+applyOutpaint();
+
+// ---------------- 违规检测规则：弹窗 ----------------
+if ($('modTagBtn')) $('modTagBtn').onclick = () => { $('ruleModal').classList.add('on'); };
+if ($('ruleModalClose')) $('ruleModalClose').onclick = () => { $('ruleModal').classList.remove('on'); };
+if ($('ruleModal')) {
+  $('ruleModal').onclick = (e) => {
+    if (e.target === $('ruleModal')) $('ruleModal').classList.remove('on');
+  };
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('ruleModal')) $('ruleModal').classList.remove('on');
+});
+
+$('go').onclick = draw;
+
+// 保存到本地 / 在文件夹中显示 / 清空预览缓存
+if ($('saveBtn')) $('saveBtn').onclick = () => {
+  if (CUR_IMG) window.location.href = '/api/download?name=' + encodeURIComponent(CUR_IMG);
+};
+if ($('revealBtn')) $('revealBtn').onclick = async () => {
+  if (!CUR_IMG) return;
+  try {
+    await fetch('/api/reveal', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: CUR_IMG }),
+    });
+    setStatus('已在资源管理器中定位该文件');
+  } catch (e) { setStatus('定位失败：' + e, true); }
+};
+if ($('clearPrev')) $('clearPrev').onclick = async () => {
+  if (!confirm('清空预览缓存？（已保存到别处的图不受影响）')) return;
+  try {
+    const r = await (await fetch('/api/clear-preview', { method: 'POST' })).json();
+    setStatus('已清空预览缓存，删除 ' + (r.removed || 0) + ' 个文件');
+    $('stage').innerHTML = '<div class="ph">出图会显示在这里</div>';
+    $('meta').textContent = '';
+    CUR_IMG = '';
+    if ($('saveBtn')) $('saveBtn').disabled = true;
+    if ($('revealBtn')) $('revealBtn').disabled = true;
+    loadState();
+  } catch (e) { setStatus('清空失败：' + e, true); }
+};
+
+// 检测自测：只跑规则，不产图、不碰 ComfyUI —— 用来调 BLOCK_PATTERNS
+$('btnProbe').onclick = async () => {
+  const t = $('probe').value;
+  if (!t.trim()) { $('probeOut').className = 'status'; $('probeOut').textContent = '先写点东西'; return; }
+  $('probeOut').className = 'status';
+  $('probeOut').textContent = '检测中…';
+  try {
+    const r = await (await fetch('/api/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: t }),
+    })).json();
+    $('probeOut').className = 'status' + (r.blocked ? ' bad' : '');
+    $('probeOut').innerHTML = r.blocked
+      ? '<b>会被拦截：</b>' + (r.reason || '') +
+        '<br><span style="color:#9aa3b2">命中片段：' + ((r.matched[0] || {}).hit || '') + '</span>'
+      : '<b>不会被拦</b>（' + r.rules + ' 条规则都没命中）';
+  } catch (e) {
+    $('probeOut').className = 'status bad';
+    $('probeOut').textContent = '出错：' + e;
+  }
+};
+
+$('again').onclick = () => { $('seed').value = 0; draw(); };
+$('prompt').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) draw();
+});
+loadState();
+
+// 支持 ?show=文件名 直接打开某个已有结果（例如 ?show=simpleui_preview/xxx.png）
+(function () {
+  const q = new URLSearchParams(location.search);
+  const want = q.get('show');
+  if (want) showImage(want, '来自链接：' + want);
+  // ?diag=1 → 把"页面实际宽度 / 谁最宽"写进标题，方便自动化检查有没有横向溢出
+  if (q.has('diag')) {
+    setTimeout(function () {
+      const de = document.documentElement;
+      let worst = '', maxRight = 0;
+      document.querySelectorAll('body *').forEach(function (el) {
+        const r = el.getBoundingClientRect();
+        if (r.right > maxRight) {
+          maxRight = r.right;
+          worst = el.tagName + (el.id ? '#' + el.id : '') +
+                  (el.className ? '.' + String(el.className).split(' ')[0] : '');
+        }
+      });
+      const txt = 'scrollW=' + de.scrollWidth + ' clientW=' + de.clientWidth +
+                  ' 横向溢出=' + (de.scrollWidth > de.clientWidth ? '有！' : '无') +
+                  ' 最宽元素=' + worst + '(' + Math.round(maxRight) + ')';
+      document.title = 'DIAG ' + txt;
+      const me = document.getElementById('meta');
+      if (me) {
+        me.style.font = '600 15px Consolas,monospace';
+        me.style.color = '#7fe7a8';
+        me.textContent = txt;
+      }
+    }, 1200);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# ---- 本机运行时产物，不进仓库 ----
+# app-profile 是应用窗口专用的浏览器配置目录，会在首次启动时自动重建
+app-profile/
+# serve.py 自动写入的解释器路径（与你的机器绑定）
+python.txt
+# 你的本机配置（仓库里只放 config.example.json）
+config.json
+# 你的违规检测规则（仓库里只放 rules.example.json）
+rules.json
+# 旧版图标/多余素材，保留在本机但不入库
+icon.ico
+logo-v2.png
+说明.txt
+
+# ---- 日志 ----
+# blocked.log 里可能有你输入过的提示词，务必不要提交
+*.log
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+.DS_Store

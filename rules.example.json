@@ -1,0 +1,31 @@
+{
+  "_readme": "这是违规检测规则的示例。复制本文件为 rules.json 使用；也可以直接启动程序，它会自动生成一份默认规则。规则改完存盘即生效，不用重启。enabled 为 false 的规则不参与检测。pattern 是正则，写错了会被单条跳过、不会拖垮整条检测链。",
+  "version": 1,
+  "rules": [
+    {
+      "name": "未成年人性化",
+      "enabled": true,
+      "pattern": "(loli|shota|child|kid|underage|minor|小学生|儿童|幼女|萝莉|未成年)[^。，,.]{0,16}(nude|naked|sex|porn|nsfw|裸|色情|性|做爱)"
+    },
+    {
+      "name": "未成年人性化（反序）",
+      "enabled": true,
+      "pattern": "(nude|naked|sex|porn|nsfw|裸|色情|做爱)[^。，,.]{0,16}(child|kid|loli|underage|小学生|儿童|幼女|萝莉|未成年)"
+    },
+    {
+      "name": "露骨标记词",
+      "enabled": true,
+      "pattern": "\\b(nsfw|explicit|hardcore porn)\\b"
+    },
+    {
+      "name": "露骨性内容",
+      "enabled": true,
+      "pattern": "(全裸|裸体|裸露|色情|做爱|性交|性行为|露点|私处)"
+    },
+    {
+      "name": "真实人物伪造",
+      "enabled": true,
+      "pattern": "(deepfake|换脸|伪造)[^。，,.]{0,16}(色情|裸|nude|sex|做爱)"
+    }
+  ]
+}
