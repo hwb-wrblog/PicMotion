@@ -33,7 +33,9 @@ and no account — everything runs offline on your own machine.
 └── simple-ui/             # this repository
 ```
 
-1. Place this repository next to your ComfyUI folder (same parent directory).
+1. Place this repository next to your ComfyUI folder (same parent directory) so it can be
+   auto-detected. If it lives elsewhere, point the app at your ComfyUI root via `config.json`
+   (copy `config.example.json`) or the `PICMOTION_COMFY_ROOT` environment variable.
 2. Requirements: the Python bundled with ComfyUI, with **Pillow**. Nothing else — the UI server
    uses the Python standard library only.
 3. Make sure ComfyUI is runnable (the app can start it for you on first use).
@@ -50,6 +52,7 @@ be reachable on `127.0.0.1:8188`.
 - [这是什么](#这是什么)
 - [工作原理](#工作原理一句话)
 - [特性](#特性)
+- [环境与前置条件](#环境与前置条件)
 - [安装](#安装)
 - [使用说明](#使用说明)
 - [配置](#配置)
@@ -93,11 +96,60 @@ be reachable on `127.0.0.1:8188`.
 | 最近生成 | 页面底部缩略图，图片和视频一起显示 |
 | 视频 | 文生视频 / 图生视频（Wan 2.2 5B TI2V，24fps） |
 
+## 环境与前置条件
+
+### 起步：一键整合包
+
+最省事的方式是用一键整合包（自带 ComfyUI + Python + 常用节点 + 部分模型）：
+
+**下载地址：<https://www.bilibili.com/opus/1233418589167419397>**
+
+解压密码 `bilibili-秋葉aaaki`，解压后目录名 `ComfyUI-aki-v3.2`。
+本程序就放在它的同级目录（见[摆放位置](#1-摆放位置)），程序会自动找到它。
+各文件的出处与下载命令见 **[docs/MODELS.md](docs/MODELS.md)**。
+
+### 必须有
+
+| 项 | 说明 |
+| --- | --- |
+| 可访问的 ComfyUI | 默认 `127.0.0.1:8188`。本程序**不自己做推理**，只调用 ComfyUI 的 4 个 HTTP 接口 |
+| SD1.5 底模 | 至少一个（见 [MODELS.md](docs/MODELS.md)） |
+| Python | ComfyUI 整合包自带的即可；只用标准库 + Pillow（读图片尺寸） |
+
+用到的 ComfyUI 接口：
+
+```text
+GET  /system_stats                     探活
+GET  /object_info/CheckpointLoaderSimple   列出可用底模
+POST /prompt                           提交工作流
+GET  /history/<prompt_id>              轮询并取回输出文件
+```
+
+### 按功能可选
+
+| 功能 | 额外需要 |
+| --- | --- |
+| ControlNet：Canny / Scribble | 对应 ControlNet 模型（预处理是纯 OpenCV，无需权重） |
+| ControlNet：Depth / OpenPose / LineArt | 上面 + 自定义节点 `comfyui_controlnet_aux` + 预处理器权重 |
+| 扩图 / 补全 | `control_v11p_sd15_inpaint` 模型（节点是 ComfyUI 核心自带） |
+| 视频 | 较新的 ComfyUI（需内置 `Wan22ImageToVideoLatent`、`CreateVideo`、`SaveVideo`、`ModelSamplingSD3`）+ 视频三件套 |
+| 中文翻译 | 能访问 Google 的本地代理（关掉则退回本地词库） |
+
+### 系统与网络
+
+- **系统**：开发与测试均在 **Windows**。`start-app.bat` / `stop.bat` 是批处理，
+  「在文件夹中显示」依赖 Windows 资源管理器；其它系统可用 `python serve.py` 启动服务，
+  再用浏览器打开 `http://127.0.0.1:8899/`，其余功能不受影响。
+- **浏览器**：`start-app.bat` 用 Edge 或 Chrome 开独立应用窗口；都没有则退回默认浏览器。
+- **网络**：可以**完全离线**使用。只有两件事需要联网：① 中译英（可关）；
+  ② 首次下载模型。服务只监听 `127.0.0.1`，不上传任何东西。
+- **硬件**：见 **[docs/HARDWARE.md](docs/HARDWARE.md)**（含实测耗时与显存建议）。
+
 ## 安装
 
 ### 1. 摆放位置
 
-本仓库需要与 ComfyUI 目录**同级**：
+最省事的摆法是让本仓库与 ComfyUI 目录**同级**（这样能被自动探测到，不用写配置）：
 
 ```text
 <任意父目录>/
@@ -115,7 +167,44 @@ be reachable on `127.0.0.1:8188`.
     └── docs/
 ```
 
-如果你的 ComfyUI 目录名不是 `ComfyUI-aki-v3.2`，改 `serve.py` 顶部的 `COMFY_ROOT` 即可（见[配置](#配置)）。
+#### 怎么让程序找到 ComfyUI
+
+按以下顺序解析，**前一步有结果就不看后面**：
+
+1. **`config.json` 的 `comfy_root`** —— 仓库里给了模板 `config.example.json`，
+   复制成 `config.json` 再改：
+
+   ```json
+   {
+     "comfy_root": "把这里换成你的 ComfyUI 根目录（含 ComfyUI/main.py 的那一层）",
+     "comfy_url": "http://127.0.0.1:8188",
+     "port": 8899
+   }
+   ```
+
+   （`config.json` 已在 `.gitignore` 里，不会被提交）
+
+2. **环境变量** `PICMOTION_COMFY_ROOT`
+3. **自动探测** —— 依次看「本目录 / 上一级 / 上两级」以及这些目录的**下一层**，
+   命中条件是：该目录下有 `ComfyUI/main.py`，且自带 Python
+   （`python/python.exe`、`python_embeded/python.exe`、`python/bin/python3`、
+   `venv/Scripts/python.exe` 任一）
+
+三步都没找到时，程序会打印提示并以**退出码 1** 退出，不会带着错误配置硬跑。
+
+**解释器**同样自动查找（优先整合包自带的那个），并在启动时把结果写进 `python.txt`；
+`start-app.bat` 优先读 `python.txt`，读不到再按常见整合包布局
+（`..\ComfyUI-aki-v3.2\python\pythonw.exe`、`..\..\…`、`python_embeded` 等）逐个试，最后才报错。
+
+#### 端口与地址
+
+| 项 | 配置方式 | 默认 |
+| --- | --- | --- |
+| ComfyUI API 地址 | `config.json` 的 `comfy_url` 或环境变量 `PICMOTION_COMFY_URL` | `http://127.0.0.1:8188` |
+| 界面服务端口 | `config.json` 的 `port` 或环境变量 `PICMOTION_PORT` | `8899` |
+| 界面监听地址 | 固定为 `127.0.0.1`（**只监听本机**，不对外暴露） | — |
+
+> 改了 `comfy_url` 或 `port` 之后，`start-app.bat` 里打开的地址也要跟着改。
 
 ### 2. 依赖
 
@@ -149,6 +238,9 @@ ControlNet 的**预处理器权重**（深度 / 姿态 / 线稿需要）放在�
 > 边缘 Canny 与涂鸦 Scribble 是纯 OpenCV 实现，**不需要任何权重**，装好节点即可用。
 
 模型文件名可以在 `serve.py` 里改（见[配置](#配置)）。
+
+**每个文件从哪个仓库下载、下载命令、以及整合包里已有哪些** —— 全部整理在
+**[docs/MODELS.md](docs/MODELS.md)**（所有仓库地址与体积都实际核对过）。
 
 ### 4. 启动
 
@@ -275,13 +367,21 @@ ControlNet 的**预处理器权重**（深度 / 姿态 / 线稿需要）放在�
 
 ## 配置
 
-### 常用常量（都在 `serve.py` 顶部）
+### 配置从哪来
+
+| 项 | 从哪里配（按优先级） | 默认 |
+| --- | --- | --- |
+| ComfyUI 目录 | `config.json` 的 `comfy_root` → 环境变量 `PICMOTION_COMFY_ROOT` → 自动探测 | 探测结果 |
+| ComfyUI API 地址 | `config.json` 的 `comfy_url` → 环境变量 `PICMOTION_COMFY_URL` | `http://127.0.0.1:8188` |
+| 界面服务端口 | `config.json` 的 `port` → 环境变量 `PICMOTION_PORT` | `8899` |
+| 界面监听地址 | `serve.py` 顶部的 `HOST`（固定，不建议改） | `127.0.0.1` |
+
+> 路径和端口不要写进代码 —— 用 `config.json` 或环境变量，换机器时不用改源码。
+
+### 其它常量（都在 `serve.py` 顶部）
 
 | 常量 | 默认 | 说明 |
 | --- | --- | --- |
-| `HOST` / `PORT` | `127.0.0.1` / `8899` | 界面服务监听地址；默认只监听本机 |
-| `COMFY` | `http://127.0.0.1:8188` | ComfyUI 的 API 地址 |
-| `COMFY_ROOT` | `../ComfyUI-aki-v3.2` | ComfyUI 目录（相对本仓库）；**换目录改这里** |
 | `PREVIEW_SUBDIR` | `simpleui_preview` | 预览缓存的子目录名 |
 | `DEFAULT_CHECKPOINT` | `majicmixRealistic_v7.safetensors` | 默认模型 |
 | `DEFAULT_NEGATIVE` | 见文件 | 默认负面提示词（压制拉伸 / 畸形 / 多肢等） |
@@ -302,11 +402,9 @@ ControlNet 的**预处理器权重**（深度 / 姿态 / 线稿需要）放在�
 - ControlNet → `CONTROLNET[*]['model']`、`OUTPAINT_CN`
 - 视频 → `VIDEO_MODEL` / `VIDEO_CLIP` / `VIDEO_VAE`
 
-想换 ComfyUI 的位置（不是模型文件），改 `COMFY_ROOT`：
-
-```python
-COMFY_ROOT = os.path.abspath(os.path.join(HERE, '..', 'ComfyUI-aki-v3.2'))
-```
+想换 ComfyUI 的**位置**（不是模型文件），用 `config.json` 的 `comfy_root`
+或环境变量 `PICMOTION_COMFY_ROOT`（见上文「怎么让程序找到 ComfyUI」）——
+**不要把路径写进代码**，那样换台机器就得改源码。
 
 ### rules.json
 
@@ -325,6 +423,9 @@ COMFY_ROOT = os.path.abspath(os.path.join(HERE, '..', 'ComfyUI-aki-v3.2'))
 }
 ```
 
+- 仓库里给了模板 `rules.example.json`（5 条默认规则），复制成 `rules.json` 使用；
+  **`rules.json` 不存在时，程序会自动用内置默认规则生成一份**
+- `rules.json` 已在 `.gitignore` 里 —— 里面是你自己的规则，不要提交
 - `pattern` 是**正则**，坏正则保存时会被拒绝
 - `flags` 常用 `i`（忽略大小写）
 - 规则按 **mtime 热加载**：文件一改，下一次请求就生效，不用重启
@@ -373,6 +474,12 @@ A：Windows 图标缓存。换一个新文件名 + 执行 `ie4uinit.exe -show`�
 A：需要 favicon。本仓库已在页面声明图标并提供 `/favicon.ico` 路由；若仍是空白，删掉
 生成的 `app-profile/` 目录再启动一次（浏览器会缓存「没有图标」这件事）。
 
+**Q：启动时报「找不到 ComfyUI」怎么办？**
+A：程序按 `config.json` → 环境变量 `PICMOTION_COMFY_ROOT` → 自动探测 的顺序找 ComfyUI 目录，
+三步都没命中就会打印提示并退出（退出码 1）。最省事的办法是在本目录建一个 `config.json`
+（照 `config.example.json` 复制），把 `comfy_root` 写成你的 ComfyUI 根目录 ——
+也就是同时含 `ComfyUI/main.py` 和自带 Python 的那一层。
+
 **Q：怎么把结果发给别人？**
 A：点「保存到本地」下载后自行分享即可。本工具不提供任何上传 / 云端能力。
 
@@ -386,15 +493,24 @@ simple-ui/                       # 本仓库
 ├── start.bat                    # 只启动服务
 ├── stop.bat                     # 停止服务
 ├── 编辑规则.bat                  # 用记事本打开 rules.json
-├── rules.json                   # 违规检测规则（可热加载）
-├── blocked.log                  # 被拦截记录（运行时生成）
-├── serve.log                    # 服务日志（运行时生成）
-├── logo.png / icon.ico          # 界面 logo 与图标
-├── 说明.txt                      # 面向使用者的简要说明
+├── config.example.json          # 配置模板（复制成 config.json 使用）
+├── rules.example.json           # 规则模板（复制成 rules.json 使用）
+├── LICENSE                      # MIT
+├── .gitignore
+├── logo.png                     # 界面 logo（同时用作 favicon）
+├── icon-v2.ico                  # 应用窗口 / 任务栏图标
 ├── docs/
 │   ├── ARCHITECTURE.md          # 完整流程与工作流节点图
 │   └── PITFALLS.md              # 踩坑记录（症状 / 根因 / 解决）
-└── app-profile/                 # 应用窗口专用的浏览器配置（运行时生成，可删）
+│
+│   ── 以下是运行时产物，已被 .gitignore 排除 ──
+├── config.json                  # 你自己的配置（comfy_root / comfy_url / port）
+├── rules.json                   # 你自己的规则；缺失时自动用内置默认规则生成
+├── python.txt                   # serve.py 写下的解释器路径，供 start-app.bat 复用
+├── blocked.log / serve.log      # 被拦截记录 / 服务日志（可能含提示词，别提交）
+├── icon.ico / logo-v2.png       # 本机图标素材
+├── 说明.txt                      # 面向使用者的简要说明
+└── app-profile/                 # 应用窗口专用的浏览器配置（可删，会自动重建）
 ```
 
 运行时还会用到（位于 ComfyUI 目录内，不在本仓库）：
@@ -406,29 +522,15 @@ simple-ui/                       # 本仓库
 
 ## 相关文档
 
+- [`docs/MODELS.md`](docs/MODELS.md) —— 模型清单：文件名、体积、放哪个目录、**从哪个仓库下载**（含直接可用的下载命令）
+- [`docs/HARDWARE.md`](docs/HARDWARE.md) —— 硬件要求与实测性能、内存/页面文件/磁盘建议
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) —— 请求链路、每种模式的工作流节点图、关键设计决策、API 一览
 - [`docs/PITFALLS.md`](docs/PITFALLS.md) —— 开发与部署中真实踩过的坑，统一按「症状 / 根因 / 解决」记录
 
 ## License
 
-MIT License
+本项目以 **MIT License** 发布，完整文本见 [`LICENSE`](LICENSE)。
 
-Copyright (c) 2026 PicMotion contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+```text
+Copyright (c) 2026 H-W-B
+```

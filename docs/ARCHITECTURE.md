@@ -26,6 +26,9 @@
 └──────────────────────────────┘
 ```
 
+图中端口是默认值：界面服务 `8899`、ComfyUI `8188`，都可通过 `config.json` 或环境变量覆盖，
+监听地址固定为 `127.0.0.1`（见 4.9）。
+
 职责划分很清晰：**本仓库负责"把中文变成合法的工作流并管理结果"，ComfyUI 负责算。**
 好处是换模型、换采样器、换视频管线都只影响工作流组装那几十行，界面完全不用动。
 
@@ -429,11 +432,47 @@ def snap8(v, minimum=8):     # minimum 可调：补 0 像素的边必须得到 0
 
 这个 `minimum` 参数是踩坑后加的（见 `PITFALLS.md` 第 17 条）。
 
+### 4.9 ComfyUI 目录、解释器与端口：为什么用配置文件而不是写死
+
+ComfyUI 的目录布局**五花八门**：官方便携版是 `python_embeded/python.exe`，
+国内整合包常见 `python/python.exe`，自建环境可能是 `venv/Scripts/python.exe`，
+而且仓库目录名也各不相同。把路径写死在代码里，换个包就跑不起来。
+
+所以改成**三级解析**，前一步有结果就不看后面：
+
+```text
+ComfyUI 目录：
+  1. config.json 的 comfy_root
+  2. 环境变量 PICMOTION_COMFY_ROOT
+  3. 自动探测：本目录 / 上一级 / 上两级，以及这些目录的下一层
+       命中条件 = 有 ComfyUI/main.py  且  自带 python
+       （python/python.exe、python_embeded/python.exe、
+         python/bin/python3、venv/Scripts/python.exe 任一）
+
+解释器：按同样的候选顺序找（优先整合包自带的），
+        启动时把结果写进 python.txt，供 start-app.bat 复用
+
+端口/地址：
+  COMFY = config.json 的 comfy_url → PICMOTION_COMFY_URL → http://127.0.0.1:8188
+  PORT  = config.json 的 port     → PICMOTION_PORT     → 8899
+  HOST  = 固定 127.0.0.1（只监听本机，不对外暴露）
+```
+
+三点考虑：
+
+- **仓库里不存机器相关的东西**：`config.json` 和 `python.txt` 都被 `.gitignore` 排除，
+  仓库里只放 `config.example.json` 这样的模板
+- **找不到就明确失败**：三级都没命中时打印三种指定方式并 `sys.exit(1)`，
+  而不是带着错误配置硬跑、让人对着诡异报错排查
+- **`python.txt` 是缓存不是配置**：它由 `serve.py` 在启动时写入，`start-app.bat` 优先读它，
+  读不到再按候选路径逐个试 —— 用户既不用手填，也不会因为缺少它而启动不了
+
 ---
 
 ## 5. `/api` 接口一览
 
-服务只监听 `127.0.0.1`。
+服务默认监听 `127.0.0.1:8899`（端口可由 `config.json` 的 `port` 或环境变量 `PICMOTION_PORT` 改）。
+下表方法一栏中，标 GET 的直接用浏览器就能试。
 
 | 方法 | 路径 | 入参 | 说明 |
 | --- | --- | --- | --- |
@@ -490,7 +529,9 @@ def snap8(v, minimum=8):     # minimum 可调：补 0 像素的边必须得到 0
 
 | 路径 | 说明 |
 | --- | --- |
-| `<仓库>/rules.json` | 违规检测规则（可热加载） |
+| `<仓库>/config.json` | 你的配置：`comfy_root` / `comfy_url` / `port`（**已 gitignore**，模板见 `config.example.json`） |
+| `<仓库>/rules.json` | 违规检测规则（可热加载；**不存在时自动用内置默认规则生成**，已 gitignore，模板见 `rules.example.json`） |
+| `<仓库>/python.txt` | `serve.py` 启动时写下的解释器路径，供 `start-app.bat` 复用（已 gitignore） |
 | `<仓库>/blocked.log` | 被拦截记录 |
 | `<仓库>/serve.log` | 服务日志 |
 | `<仓库>/app-profile/` | 应用窗口专用浏览器配置（生成物，可删） |
@@ -512,7 +553,8 @@ def snap8(v, minimum=8):     # minimum 可调：补 0 像素的边必须得到 0
 | 调内置提示词 | `QUALITY_PREFIX` / `QUALITY_SUFFIX` / `SUBJECT_TOKENS` / `DEFAULT_NEGATIVE` |
 | 加尺寸档位 | `SIZES` / `VIDEO_SIZES` |
 | 调高清倍率 | `HIRES`（倍率, 第二遍 denoise） |
-| 换 ComfyUI 位置 | `COMFY_ROOT` |
+| 换 ComfyUI 位置 | `config.json` 的 `comfy_root` 或环境变量 `PICMOTION_COMFY_ROOT`（**不要改代码**，见 4.9） |
+| 换端口 / ComfyUI 地址 | `config.json` 的 `port` / `comfy_url`，或环境变量 `PICMOTION_PORT` / `PICMOTION_COMFY_URL` |
 | 换端口 | `HOST` / `PORT`（界面里的 URL 也要一起改） |
 
 加一种**全新管线**（例如 Inpainting、放大模型）时，需要：

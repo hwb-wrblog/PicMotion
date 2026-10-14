@@ -3,6 +3,8 @@
 app-profile/
 # serve.py 自动写入的解释器路径（与你的机器绑定）
 python.txt
+# serve.py 自动写入的实际端口
+port.txt
 # 你的本机配置（仓库里只放 config.example.json）
 config.json
 # 你的违规检测规则（仓库里只放 rules.example.json）

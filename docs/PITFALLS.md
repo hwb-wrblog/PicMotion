@@ -420,3 +420,42 @@ def snap8(v, minimum=8):
   语义清晰、不受 PowerShell 管道行为影响。
 - PowerShell 只负责发起请求或调 Python，不做复杂 JSON 加工。
 - 同理：查询结构不确定时，**先把原始返回落到文件里**再分析，而不是在管道里猜。
+
+---
+
+## 19. 把 ComfyUI 目录名写死在代码里 → 换个整合包就找不到
+
+**症状**
+程序只能在「与本仓库同级、并叫 `ComfyUI-aki-v3.2`」的布局下工作。
+换成官方便携版、别的整合包，或者把仓库挪到别处，就报找不到 ComfyUI / 找不到 Python。
+
+**根因**
+最初把相对路径写死了：
+
+```python
+COMFY_ROOT = os.path.abspath(os.path.join(HERE, '..', 'ComfyUI-aki-v3.2'))
+```
+
+而现实里各家的布局差异很大：
+
+- 官方便携版：`python_embeded/python.exe`
+- 国内整合包：`python/python.exe`
+- 自建 / 虚拟环境：`venv/Scripts/python.exe` 或 `python/bin/python3`
+- 目录名本身更是随意
+
+**解决**
+改成**三级解析 + 候选式查找**（实现细节见 `docs/ARCHITECTURE.md` 4.9）：
+
+1. `config.json` 的 `comfy_root`
+2. 环境变量 `PICMOTION_COMFY_ROOT`
+3. 自动探测：本目录 / 上一级 / 上两级，以及这些目录的下一层；
+   命中条件 = 有 `ComfyUI/main.py` **且**自带 Python（候选路径覆盖上面几种布局）
+
+配套两件事：
+
+- 解释器路径在启动时写进 `python.txt`，`start-app.bat` 优先复用它，
+  读不到再对常见布局逐个兜底
+- 三级都找不到时**打印三种指定方式并以退出码 1 退出**，而不是带着错误配置硬跑
+
+**教训**：脚本里不要出现「同级目录名」这类机器相关假设 ——
+**要么可配置，要么可探测**，两者都做不到才写死。

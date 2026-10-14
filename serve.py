@@ -108,14 +108,22 @@ PYW_EXE = (os.path.join(os.path.dirname(PY_EXE), 'pythonw.exe')
            if PY_EXE.lower().endswith('python.exe') else PY_EXE)
 
 
-def _remember_python():
-    """把解释器路径写进 python.txt，让 start-app.bat 每次用同一个（免去手工配置）。"""
+def _remember_runtime():
+    """把解释器路径和实际端口写进 python.txt / port.txt。
+
+    这是给 start-app.bat 用的：批处理没法解析 config.json，所以由服务端把结果落成
+    两个纯文本文件，启动脚本直接读。它们只是缓存，删掉会自动重建。
+    """
     try:
-        if not COMFY_ROOT:
-            return
-        want = PYW_EXE if os.path.isfile(PYW_EXE) else PY_EXE
-        with open(os.path.join(HERE, 'python.txt'), 'w', encoding='utf-8') as f:
-            f.write(want)
+        if COMFY_ROOT:
+            want = PYW_EXE if os.path.isfile(PYW_EXE) else PY_EXE
+            with open(os.path.join(HERE, 'python.txt'), 'w', encoding='utf-8') as f:
+                f.write(want)
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(HERE, 'port.txt'), 'w', encoding='utf-8') as f:
+            f.write(str(PORT))
     except Exception:
         pass
 
@@ -1411,11 +1419,11 @@ def main():
     if not os.path.isdir(COMFY_ROOT):
         print('找不到 ComfyUI 目录。')
         print('本程序需要和 ComfyUI 整合包放在一起。请任选一种方式指定：')
-        print('  1) 在本目录建 config.json：{"comfy_root": "C:/路径/ComfyUI-aki-v3.2"}')
+        print('  1) 在本目录建 config.json：{"comfy_root": "<你的 ComfyUI 根目录>"}')
         print('  2) 设环境变量 PICMOTION_COMFY_ROOT')
         print('  3) 把本目录直接放进整合包根目录下一层（自动探测）')
         sys.exit(1)
-    _remember_python()
+    _remember_runtime()
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     rules = load_rules()
     print('=' * 56)

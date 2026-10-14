@@ -4,7 +4,11 @@ rem   1) make sure the local service is running (hidden, no console window)
 rem   2) open it as a standalone app window: own profile => own window, no tabs, no address bar
 setlocal
 set HERE=%~dp0
-set URL=http://127.0.0.1:8899/
+
+rem --- port: written by serve.py into port.txt; falls back to 8899 ---
+set PORT=8899
+if exist "%HERE%port.txt" set /p PORT=<"%HERE%port.txt"
+set URL=http://127.0.0.1:%PORT%/
 set PROFILE=%HERE%app-profile
 
 rem --- find a python: python.txt (written by serve.py) first, then common portable layouts ---
@@ -33,7 +37,7 @@ if not defined PYW (
 )
 
 rem 1) service up?
-netstat -ano | findstr ":8899" | findstr "LISTENING" >nul 2>&1
+netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>&1
 if errorlevel 1 (
   start "" "%PYW%" "%HERE%serve.py"
   timeout /t 3 /nobreak >nul
