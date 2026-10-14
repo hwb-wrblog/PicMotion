@@ -3,7 +3,7 @@
 > 跑在本地的 ComfyUI 极简中文界面：**写中文 → 点「生成」→ 出图 / 出视频**。
 > 不联网、不要 API key、不注册账号，全部在你自己的机器上完成。
 
-![PicMotion Logo](logo.png)
+![PicMotion 界面示意](docs/images/screenshot.png)
 
 ---
 
