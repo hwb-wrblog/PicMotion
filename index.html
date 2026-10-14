@@ -97,8 +97,7 @@
     <img src="/logo.png" alt="">
     <div>
       <h1>极简画影</h1>
-      <div class="sub">图片和视频都能生成：写中文 → 点「生成」，风格和参数我来配。
-        <button class="tag" id="modTagBtn" title="点击配置违规检测规则">⚙ 违规检测</button></div>
+      <div class="sub"><button class="tag" id="modTagBtn" title="点击配置违规检测规则">⚙ 违规检测</button></div>
     </div>
   </div>
 
@@ -114,16 +113,14 @@
         <div class="row" style="margin-top:8px">
           <div>
             <label style="margin-top:0">重绘幅度 <span id="dnVal" style="color:var(--fg)">0.55</span></label>
-            <input type="range" id="denoise" min="0.15" max="0.9" step="0.05" value="0.55" style="width:100%">
+            <input type="range" id="denoise" title="重绘幅度：越小越贴近原图（保画风 0.3-0.45），越大改动越多（换风格 0.6-0.8）" min="0.15" max="0.9" step="0.05" value="0.55" style="width:100%">
           </div>
           <div style="display:flex;align-items:flex-end">
             <button class="go ghost" id="clearImg" style="margin-top:0">去掉参考图</button>
           </div>
         </div>
-        <div class="meta">幅度越小越贴近原图（保画风用 0.3-0.45），越大改动越多（换风格用 0.6-0.8）</div>
-
         <label>控制方式（锁构图换内容）</label>
-        <select id="control">
+        <select id="control" title="用参考图当结构草图重新画：构图保留、内容和光线按提示词换；不选则是传统图生图（光影很难改）">
           <option value="" selected>不用 —— 传统图生图（保留原图光影）</option>
           <option value="canny">边缘 Canny —— 保线条轮廓</option>
           <option value="depth">深度 Depth —— 保空间结构</option>
@@ -133,13 +130,10 @@
         </select>
         <label>控制强度 <span id="cnVal" style="color:var(--fg)">1.0</span></label>
         <input type="range" id="cnStrength" min="0.2" max="1.6" step="0.1" value="1" style="width:100%">
-        <div class="meta">选了控制方式 = 用参考图当「结构草图」重新画 —— 构图保留、内容和光线按提示词换；
-        不选 = 传统图生图（越像越保留原图，光影很难改）。<br>
-        深度/姿态/线稿首次使用会下预处理器权重（走镜像），第一次会慢一点。</div>
         </div>
 
         <label>扩图 / 补全（在画面外补内容）</label>
-        <select id="outpaint">
+        <select id="outpaint" title="在画面外补内容。原图那块不会被改动，只在外面生成新内容；提示词要描述你想补出来的东西">
           <option value="" selected>不用</option>
           <option value="down">向下补 —— 半身补全身（补腿、脚）</option>
           <option value="up">向上补 —— 补头顶、天空</option>
@@ -147,25 +141,19 @@
           <option value="all">四周补 —— 整体扩大画布</option>
         </select>
         <label>补多少</label>
-        <select id="opAmount">
+        <select id="opAmount" title="小=补一点（补脚/头顶）；大=尽量多补（半身补全身用这个）">
           <option value="small">小 —— 补一点（补脚、补头顶、扩一点背景）</option>
           <option value="mid" selected>中 —— 补半屏</option>
           <option value="large">大 —— 尽量多补（补全身试这个）</option>
         </select>
         <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--fg)">
-          <input type="checkbox" id="opShrink" style="width:auto">
+          <input type="checkbox" id="opShrink" title="缩小原图腾空间：半身补全身请勾上，人物会变小但全身比例才正常" style="width:auto">
           <span>缩小原图腾空间（<b>半身补全身请勾上</b>：人物会变小，但全身比例才正常）</span>
         </label>
-        <div class="meta">用「原图 + 掩码」补：<b>原图那块不会被改动</b>，只在外面生成新内容。
-        已挂扩图专用 inpaint ControlNet，接缝 / 光照 / 背景会延续原图。<br>
-        <b>实测结论（512×768 半身图 → 画布 512×1280）</b>：<br>
-        ・不勾「缩小」：接缝干净，但腿被压扁、脚出不来（人物占满画布，没空间了）<br>
-        ・<b>勾上「缩小」：完整全身（牛仔裤 + 球鞋），接缝看不出，背景连贯</b> ← 补全身用这个<br>
-        提示词请把<b>要补的东西 + 整体</b>都写上（例：全身照，牛仔裤，双腿，白色运动鞋，站在水泥地面上，写实摄影）。</div>
-      </div>
+        </div>
 
       <label>想画什么</label>
-      <textarea id="prompt" placeholder="例：深夜的书店，窗外下雨，暖黄台灯，木书架，一杯咖啡"></textarea>
+      <textarea id="prompt"></textarea>
 
       <label>生成什么</label>
       <div class="styles" id="modes">
@@ -186,7 +174,7 @@
       </select>
 
       <label>清晰度</label>
-      <select id="hires">
+      <select id="hires" title="两遍画法：先按基准尺寸画，再放大重绘一遍。别直接拉高分辨率，SD1.5 会构图涣散">
         <option value="none">标准（最快，512 级别）</option>
         <option value="1.5" selected>高清 1.5×（推荐）</option>
         <option value="2">高清 2×（最清晰，慢）</option>
@@ -194,28 +182,26 @@
 
       <label>模型</label>
       <select id="model"></select>
-      <div class="meta" id="styleHint"></div>
 
       <label>画面合理性（内置，建议保持开启）</label>
-      <div class="styles" id="qbits">
+      <div class="styles" id="qbits" title="内置合理性提示词：追加构图/比例/解剖相关的词，并强化负面词，让画面不拉伸、更协调">
         <button data-q="quality" class="on">合理 · 不拉伸</button>
         <button data-q="person">人物</button>
         <button data-q="action">动作</button>
         <button data-q="scene">场景</button>
       </div>
-      <div class="meta" id="qHint"></div>
       </div>
 
       <div id="vidOnly" style="display:none">
         <label>视频尺寸</label>
-        <select id="vsize">
+        <select id="vsize" title="视频尺寸。720p 在 12GB 显存上有风险">
           <option value="480p_landscape" selected>横版 832×480</option>
           <option value="480p_portrait">竖版 480×832</option>
           <option value="480p_square">方形 640×640</option>
           <option value="720p_landscape">高清横版 1280×704（慢，可能爆显存）</option>
         </select>
         <label>时长</label>
-        <select id="seconds">
+        <select id="seconds" title="视频时长。帧数按 4n+1 规则取整，所以实际秒数会略短于档位">
           <option value="2" selected>2 秒档（45 帧 / 1.88 秒）</option>
           <option value="3">3 秒档（69 帧 / 2.88 秒）</option>
           <option value="5">5 秒档（117 帧 / 4.88 秒，慢）</option>
@@ -226,14 +212,12 @@
           <option value="10">10 步（快，质量降）</option>
           <option value="30">30 步（慢，质量升）</option>
         </select>
-        <div class="meta">Wan2.2 5B：写了提示词就是文生视频；放了参考图就用它当**首帧**（图生视频）。<br>
-        参数跟官方模板一致：uni_pc / simple / CFG 5 / shift 8 / 24fps。</div>
-      </div>
+        </div>
 
       <details class="box">
         <summary>高级（一般不用动）</summary>
         <label>负面词</label>
-        <textarea id="negative" style="min-height:60px" placeholder="留空则用默认质量底线"></textarea>
+        <textarea id="negative" style="min-height:60px"></textarea>
         <div class="row">
           <div><label>步数</label><input type="number" id="steps" value="24" min="8" max="60"></div>
           <div><label>CFG</label><input type="number" id="cfg" value="7" step="0.5" min="1" max="20"></div>
@@ -278,12 +262,8 @@
         <button class="go" id="btnSaveRules">保存规则</button>
       </div>
       <div class="status" id="rulesOut"></div>
-      <div class="meta">规则文件：<span id="rulesFile"></span><br>
-        也可以直接用记事本改它，存盘后下一次请求自动生效，不用重启。<br>
-        出图链路：① 检测 → ② 翻译 → ③ 组装 → ④ 提交 ComfyUI，不通过到不了 ComfyUI。</div>
-
       <label style="margin-top:14px">检测自测（不产图，只看会不会被拦）</label>
-      <textarea id="probe" style="min-height:64px" placeholder="随便写点东西，看看会不会命中规则"></textarea>
+      <textarea id="probe" style="min-height:64px"></textarea>
       <button class="go ghost" id="btnProbe" style="margin-top:8px">试一下</button>
       <div class="status" id="probeOut"></div>
     </div>
@@ -440,37 +420,41 @@ async function draw() {
       setStatus((r.blocked ? '<b>已拦截：</b>' : '<b>失败：</b>') + (r.error || '未知错误'), true);
       return;
     }
-    let meta, out;
+    let summary, detail = '', out;
     if (r.mode === 'video') {
       out = (r.videos && r.videos.length) ? r.videos[0] : (r.images && r.images[0]);
-      meta = '视频 · ' + r.vsize + ' · ' + r.frames + ' 帧 / ' + r.seconds + ' 秒 · 24fps · 种子 ' +
-             r.seed + ' · 耗时 ' + r.elapsed + ' 秒';
+      summary = r.vsize + ' · ' + r.frames + ' 帧 / ' + r.seconds + ' 秒 · 种子 ' + r.seed +
+                ' · ' + r.elapsed + ' 秒';
     } else {
       out = (r.images && r.images.length) ? r.images[0] : (r.videos && r.videos[0]);
-      meta = '模型 ' + r.checkpoint + ' · 输出 ' + (r.outSize || r.size) + ' · 种子 ' + r.seed +
-             ' · 耗时 ' + r.elapsed + ' 秒' +
-             ((r.images && r.images.length > 1) ? ' · 共 ' + r.images.length + ' 张' : '');
-      if (r.hires && r.hires !== 'none') meta += '\n高清 ' + r.hires + '×（基准 ' + r.size + ' → 放大重绘第二遍）';
-      if (r.imgMode === 'i2i') meta += '\n图生图：重绘幅度 ' + r.denoise + '（参考图 ' + r.initImage + '）';
+      summary = (r.outSize || r.size) + ' · 种子 ' + r.seed + ' · ' + r.elapsed + ' 秒' +
+                ((r.images && r.images.length > 1) ? ' · ' + r.images.length + ' 张' : '');
+      detail += '模型：' + r.checkpoint + '\n';
+      if (r.hires && r.hires !== 'none') {
+        detail += '高清 ' + r.hires + '×（基准 ' + r.size + '，放大重绘第二遍）\n';
+      }
+      if (r.imgMode === 'i2i') detail += '图生图：重绘幅度 ' + r.denoise + '（参考图 ' + r.initImage + '）\n';
       if (r.imgMode === 'outpaint') {
         const dn = { down: '向下补', up: '向上补', lr: '左右补', all: '四周补' }[r.outpaint] || r.outpaint;
-        meta += '\n扩图（' + dn + '）：补完画布 ' + r.outpaintCanvas + '，原图区域保持未改动';
+        detail += '扩图（' + dn + '）：补完画布 ' + r.outpaintCanvas + '，原图区域未改动\n';
       }
-      if (r.imgMode === 'controlnet') meta += '\nControlNet「' + r.control + '」强度 ' + r.controlStrength +
-        '：参考图只当结构草图，画面是重新画的';
-      if (r.aspectFixed) meta += '\n⚠ 已按参考图比例把出图尺寸改成 ' + r.size + '（不改的话结构会被拉伸）';
+      if (r.imgMode === 'controlnet') {
+        detail += 'ControlNet「' + r.control + '」强度 ' + r.controlStrength + '\n';
+      }
+      if (r.aspectFixed) detail += '已按参考图比例把出图尺寸改成 ' + r.size + '\n';
       if (r.applied && r.applied.length) {
-        meta += '\n内置提示词（追加到你的提示词后面）：\n  ' + r.applied.join('\n  ');
+        detail += '内置提示词：\n  ' + r.applied.join('\n  ') + '\n';
       }
     }
     if (r.translated) {
-      const via = r.engine === 'google' ? '（Google 翻译）' : (r.engine === 'dict' ? '（本地词库）' : '');
-      meta += '\n实际送出的提示词' + via + '：' + r.translated;
+      const via = r.engine === 'google' ? 'Google 翻译' : (r.engine === 'dict' ? '本地词库' : '');
+      detail += '实际送出的提示词' + (via ? '（' + via + '）' : '') + '：\n  ' + r.translated + '\n';
     }
     if (r.engine === 'dict' && r.dropped && r.dropped.length) {
-      meta += '\n词库里没有、未参与出图的中文：' + r.dropped.join('、');
+      detail += '词库里没有、未参与出图的中文：' + r.dropped.join('、') + '\n';
     }
-    showImage(out, meta);
+    showImage(out, summary);
+    if ($('meta')) $('meta').title = detail.trim();
     setStatus('完成，耗时 ' + r.elapsed + ' 秒');
     $('seed').value = 0;
     loadState();
