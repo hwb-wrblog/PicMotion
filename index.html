@@ -720,7 +720,7 @@ loadState();
 (function () {
   const q = new URLSearchParams(location.search);
   const want = q.get('show');
-  if (want) showImage(want, '来自链接：' + want);
+  if (want) showImage(want, '');
   // ?diag=1 → 把"页面实际宽度 / 谁最宽"写进标题，方便自动化检查有没有横向溢出
   if (q.has('diag')) {
     setTimeout(function () {
